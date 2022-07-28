@@ -1,29 +1,32 @@
+/*
+ * @Author: cyicz123 cyicz123@outlook.com
+ * @Date: 2022-07-28 09:49:30
+ * @LastEditors: cyicz123 cyicz123@outlook.com
+ * @LastEditTime: 2022-07-28 09:58:57
+ * @FilePath: /tcp-server/main.c
+ * @Description: 主函数
+ */
 #include "md5/md5.h"
+#include <stdio.h>
 
 int main(int argc, char* argv[])
 {
-    char *msg;
-    size_t len;
-    int i;
-    uint8_t result[16];
+    char* path=NULL;
+    char result[128]={0};
  
     if (argc < 2) {
         printf("usage: %s 'string'\n", argv[0]);
         return 1;
     }
-    msg = argv[1];
+    path = argv[1];
  
-    len = strlen(msg);
  
     // benchmark
-    for (i = 0; i < 1000000; i++) {
-        md5((uint8_t*)msg, len, result);
+    for (size_t i = 0; i < 1000000; i++) {
+        GetFileMD5(path, result);
     }
  
-    // display result
-    for (i = 0; i < 16; i++)
-        printf("%2.2x", result[i]);
-    puts("");
+    printf("%s's md5 is %s\n",path,result);
  
     return 0;
 }

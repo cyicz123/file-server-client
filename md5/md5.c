@@ -1,344 +1,309 @@
 /*
-* @auther: pod32g
-* @link: https://github.com/pod32g/MD5
-* @LICENCE: Apache-2.0 license
-*                                 Apache License
-*                            Version 2.0, January 2004
-*                         http://www.apache.org/licenses/
-* 
-*    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-* 
-*    1. Definitions.
-* 
-*       "License" shall mean the terms and conditions for use, reproduction,
-*       and distribution as defined by Sections 1 through 9 of this document.
-* 
-*       "Licensor" shall mean the copyright owner or entity authorized by
-*       the copyright owner that is granting the License.
-* 
-*       "Legal Entity" shall mean the union of the acting entity and all
-*       other entities that control, are controlled by, or are under common
-*       control with that entity. For the purposes of this definition,
-*       "control" means (i) the power, direct or indirect, to cause the
-*       direction or management of such entity, whether by contract or
-*       otherwise, or (ii) ownership of fifty percent (50%) or more of the
-*       outstanding shares, or (iii) beneficial ownership of such entity.
-* 
-*       "You" (or "Your") shall mean an individual or Legal Entity
-*       exercising permissions granted by this License.
-* 
-*       "Source" form shall mean the preferred form for making modifications,
-*       including but not limited to software source code, documentation
-*       source, and configuration files.
-* 
-*       "Object" form shall mean any form resulting from mechanical
-*       transformation or translation of a Source form, including but
-*       not limited to compiled object code, generated documentation,
-*       and conversions to other media types.
-* 
-*       "Work" shall mean the work of authorship, whether in Source or
-*       Object form, made available under the License, as indicated by a
-*       copyright notice that is included in or attached to the work
-*       (an example is provided in the Appendix below).
-* 
-*       "Derivative Works" shall mean any work, whether in Source or Object
-*       form, that is based on (or derived from) the Work and for which the
-*       editorial revisions, annotations, elaborations, or other modifications
-*       represent, as a whole, an original work of authorship. For the purposes
-*       of this License, Derivative Works shall not include works that remain
-*       separable from, or merely link (or bind by name) to the interfaces of,
-*       the Work and Derivative Works thereof.
-* 
-*       "Contribution" shall mean any work of authorship, including
-*       the original version of the Work and any modifications or additions
-*       to that Work or Derivative Works thereof, that is intentionally
-*       submitted to Licensor for inclusion in the Work by the copyright owner
-*       or by an individual or Legal Entity authorized to submit on behalf of
-*       the copyright owner. For the purposes of this definition, "submitted"
-*       means any form of electronic, verbal, or written communication sent
-*       to the Licensor or its representatives, including but not limited to
-*       communication on electronic mailing lists, source code control systems,
-*       and issue tracking systems that are managed by, or on behalf of, the
-*       Licensor for the purpose of discussing and improving the Work, but
-*       excluding communication that is conspicuously marked or otherwise
-*       designated in writing by the copyright owner as "Not a Contribution."
-* 
-*       "Contributor" shall mean Licensor and any individual or Legal Entity
-*       on behalf of whom a Contribution has been received by Licensor and
-*       subsequently incorporated within the Work.
-* 
-*    2. Grant of Copyright License. Subject to the terms and conditions of
-*       this License, each Contributor hereby grants to You a perpetual,
-*       worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-*       copyright license to reproduce, prepare Derivative Works of,
-*       publicly display, publicly perform, sublicense, and distribute the
-*       Work and such Derivative Works in Source or Object form.
-* 
-*    3. Grant of Patent License. Subject to the terms and conditions of
-*       this License, each Contributor hereby grants to You a perpetual,
-*       worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-*       (except as stated in this section) patent license to make, have made,
-*       use, offer to sell, sell, import, and otherwise transfer the Work,
-*       where such license applies only to those patent claims licensable
-*       by such Contributor that are necessarily infringed by their
-*       Contribution(s) alone or by combination of their Contribution(s)
-*       with the Work to which such Contribution(s) was submitted. If You
-*       institute patent litigation against any entity (including a
-*       cross-claim or counterclaim in a lawsuit) alleging that the Work
-*       or a Contribution incorporated within the Work constitutes direct
-*       or contributory patent infringement, then any patent licenses
-*       granted to You under this License for that Work shall terminate
-*       as of the date such litigation is filed.
-* 
-*    4. Redistribution. You may reproduce and distribute copies of the
-*       Work or Derivative Works thereof in any medium, with or without
-*       modifications, and in Source or Object form, provided that You
-*       meet the following conditions:
-* 
-*       (a) You must give any other recipients of the Work or
-*           Derivative Works a copy of this License; and
-* 
-*       (b) You must cause any modified files to carry prominent notices
-*           stating that You changed the files; and
-* 
-*       (c) You must retain, in the Source form of any Derivative Works
-*           that You distribute, all copyright, patent, trademark, and
-*           attribution notices from the Source form of the Work,
-*           excluding those notices that do not pertain to any part of
-*           the Derivative Works; and
-* 
-*       (d) If the Work includes a "NOTICE" text file as part of its
-*           distribution, then any Derivative Works that You distribute must
-*           include a readable copy of the attribution notices contained
-*           within such NOTICE file, excluding those notices that do not
-*           pertain to any part of the Derivative Works, in at least one
-*           of the following places: within a NOTICE text file distributed
-*           as part of the Derivative Works; within the Source form or
-*           documentation, if provided along with the Derivative Works; or,
-*           within a display generated by the Derivative Works, if and
-*           wherever such third-party notices normally appear. The contents
-*           of the NOTICE file are for informational purposes only and
-*           do not modify the License. You may add Your own attribution
-*           notices within Derivative Works that You distribute, alongside
-*           or as an addendum to the NOTICE text from the Work, provided
-*           that such additional attribution notices cannot be construed
-*           as modifying the License.
-* 
-*       You may add Your own copyright statement to Your modifications and
-*       may provide additional or different license terms and conditions
-*       for use, reproduction, or distribution of Your modifications, or
-*       for any such Derivative Works as a whole, provided Your use,
-*       reproduction, and distribution of the Work otherwise complies with
-*       the conditions stated in this License.
-* 
-*    5. Submission of Contributions. Unless You explicitly state otherwise,
-*       any Contribution intentionally submitted for inclusion in the Work
-*       by You to the Licensor shall be under the terms and conditions of
-*       this License, without any additional terms or conditions.
-*       Notwithstanding the above, nothing herein shall supersede or modify
-*       the terms of any separate license agreement you may have executed
-*       with Licensor regarding such Contributions.
-* 
-*    6. Trademarks. This License does not grant permission to use the trade
-*       names, trademarks, service marks, or product names of the Licensor,
-*       except as required for reasonable and customary use in describing the
-*       origin of the Work and reproducing the content of the NOTICE file.
-* 
-*    7. Disclaimer of Warranty. Unless required by applicable law or
-*       agreed to in writing, Licensor provides the Work (and each
-*       Contributor provides its Contributions) on an "AS IS" BASIS,
-*       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-*       implied, including, without limitation, any warranties or conditions
-*       of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-*       PARTICULAR PURPOSE. You are solely responsible for determining the
-*       appropriateness of using or redistributing the Work and assume any
-*       risks associated with Your exercise of permissions under this License.
-* 
-*    8. Limitation of Liability. In no event and under no legal theory,
-*       whether in tort (including negligence), contract, or otherwise,
-*       unless required by applicable law (such as deliberate and grossly
-*       negligent acts) or agreed to in writing, shall any Contributor be
-*       liable to You for damages, including any direct, indirect, special,
-*       incidental, or consequential damages of any character arising as a
-*       result of this License or out of the use or inability to use the
-*       Work (including but not limited to damages for loss of goodwill,
-*       work stoppage, computer failure or malfunction, or any and all
-*       other commercial damages or losses), even if such Contributor
-*       has been advised of the possibility of such damages.
-* 
-*    9. Accepting Warranty or Additional Liability. While redistributing
-*       the Work or Derivative Works thereof, You may choose to offer,
-*       and charge a fee for, acceptance of support, warranty, indemnity,
-*       or other liability obligations and/or rights consistent with this
-*       License. However, in accepting such obligations, You may act only
-*       on Your own behalf and on Your sole responsibility, not on behalf
-*       of any other Contributor, and only if You agree to indemnify,
-*       defend, and hold each Contributor harmless for any liability
-*       incurred by, or claims asserted against, such Contributor by reason
-*       of your accepting any such warranty or additional liability.
-* 
-*    END OF TERMS AND CONDITIONS
-* 
-*    APPENDIX: How to apply the Apache License to your work.
-* 
-*       To apply the Apache License to your work, attach the following
-*       boilerplate notice, with the fields enclosed by brackets "[]"
-*       replaced with your own identifying information. (Don't include
-*       the brackets!)  The text should be enclosed in the appropriate
-*       comment syntax for the file format. We also recommend that a
-*       file or class name and description of purpose be included on the
-*       same "printed page" as the copyright notice for easier
-*       identification within third-party archives.
-* 
-*    Copyright [2022] [pod32g]
-* 
-*    Licensed under the Apache License, Version 2.0 (the "License");
-*    you may not use this file except in compliance with the License.
-*    You may obtain a copy of the License at
-* 
-*        http://www.apache.org/licenses/LICENSE-2.0
-* 
-*    Unless required by applicable law or agreed to in writing, software
-*    distributed under the License is distributed on an "AS IS" BASIS,
-*    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*    See the License for the specific language governing permissions and
-*    limitations under the License.
-*/
-#include "md5.h"
+ * @Author: cyicz123 cyicz123@outlook.com
+ * @Date: 2022-07-26 14:45:16
+ * @LastEditors: cyicz123 cyicz123@outlook.com
+ * @LastEditTime: 2022-07-28 10:00:36
+ * @FilePath: /tcp-server/md5/md5.c
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 
-const uint32_t k[64] = {
-0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee ,
-0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501 ,
-0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be ,
-0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821 ,
-0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa ,
-0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8 ,
-0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed ,
-0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a ,
-0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c ,
-0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70 ,
-0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05 ,
-0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665 ,
-0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039 ,
-0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1 ,
-0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1 ,
-0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391 };
+#include <string.h>    /* for memcpy() */ 
+#include <stdio.h> 
+#include "md5.h" 
  
-// r specifies the per-round shift amounts
-const uint32_t r[] = {7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-                      5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20, 5,  9, 14, 20,
-                      4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-                      6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21};
+#ifndef HIGHFIRST 
+#define byteReverse(buf, len)  /* Nothing */ 
+#else 
+void byteReverse(unsigned char *buf, unsigned longs); 
  
-// leftrotate function definition
-#define LEFTROTATE(x, c) (((x) << (c)) | ((x) >> (32 - (c))))
+#ifndef ASM_MD5 
+/* 
+ * Note: this code is harmless on little-endian machines. 
+ */ 
+void byteReverse(unsigned char *buf, unsigned longs) 
+{ 
+  uint32 t; 
+  do { 
+    t = (uint32) ((unsigned) buf[3] << 8 | buf[2]) << 16 | 
+    ((unsigned) buf[1] << 8 | buf[0]); 
+    *(uint32 *) buf = t; 
+    buf += 4; 
+  }while (--longs); 
+} 
+#endif 
+#endif 
  
-void to_bytes(uint32_t val, uint8_t *bytes)
-{
-    bytes[0] = (uint8_t) val;
-    bytes[1] = (uint8_t) (val >> 8);
-    bytes[2] = (uint8_t) (val >> 16);
-    bytes[3] = (uint8_t) (val >> 24);
-}
+static void putu32(uint32 data, unsigned char *addr) { 
+  addr[0] = (unsigned char) data; 
+  addr[1] = (unsigned char) (data >> 8); 
+  addr[2] = (unsigned char) (data >> 16); 
+  addr[3] = (unsigned char) (data >> 24); 
+} 
  
-uint32_t to_int32(const uint8_t *bytes)
-{
-    return (uint32_t) bytes[0]
-        | ((uint32_t) bytes[1] << 8)
-        | ((uint32_t) bytes[2] << 16)
-        | ((uint32_t) bytes[3] << 24);
-}
+/* 
+ * Start MD5 accumulation. Set bit count to 0 and buffer to mysterious 
+ * initialization constants. 
+ */ 
+void md5Init(struct MD5Context *ctx) { 
+  ctx->buf[0] = 0x67452301; 
+  ctx->buf[1] = 0xefcdab89; 
+  ctx->buf[2] = 0x98badcfe; 
+  ctx->buf[3] = 0x10325476; 
  
-void md5(const uint8_t *initial_msg, size_t initial_len, uint8_t *digest) {
+  ctx->bits[0] = 0; 
+  ctx->bits[1] = 0; 
+} 
  
-    // These vars will contain the hash
-    uint32_t h0, h1, h2, h3;
+/* 
+ * Update context to reflect the concatenation of another buffer full 
+ * of bytes. 
+ */ 
+void md5Update(struct MD5Context *ctx, unsigned char const *buf, unsigned len) { 
+  uint32 t; 
  
-    // Message (to prepare)
-    uint8_t *msg = NULL;
+  /* Update bitcount */ 
  
-    size_t new_len, offset;
-    uint32_t w[16];
-    uint32_t a, b, c, d, i, f, g, temp;
+  t = ctx->bits[0]; 
+  if ((ctx->bits[0] = t + ((uint32) len << 3)) < t) 
+    ctx->bits[1]++; /* Carry from low to high */ 
+  ctx->bits[1] += len >> 29; 
  
-    // Initialize variables - simple count in nibbles:
-    h0 = 0x67452301;
-    h1 = 0xefcdab89;
-    h2 = 0x98badcfe;
-    h3 = 0x10325476;
+  t = (t >> 3) & 0x3f; /* Bytes already in shsInfo->data */ 
  
-    //Pre-processing:
-    //append "1" bit to message    
-    //append "0" bits until message length in bits ≡ 448 (mod 512)
-    //append length mod (2^64) to message
+  /* Handle any leading odd-sized chunks */ 
  
-    for (new_len = initial_len + 1; new_len % (512/8) != 448/8; new_len++)
-        ;
+  if (t) { 
+    unsigned char *p = (unsigned char *) ctx->in + t; 
  
-    msg = (uint8_t*)malloc(new_len + 8);
-    memcpy(msg, initial_msg, initial_len);
-    msg[initial_len] = 0x80; // append the "1" bit; most significant bit is "first"
-    for (offset = initial_len + 1; offset < new_len; offset++)
-        msg[offset] = 0; // append "0" bits
+    t = 64 - t; 
+    if (len < t) { 
+      memcpy(p, buf, len); 
+      return; 
+    } 
+    memcpy(p, buf, t); 
+    byteReverse(ctx->in, 16); 
+    md5Transform(ctx->buf, (uint32 *) ctx->in); 
+    buf += t; 
+    len -= t; 
+  } 
+  /* Process data in 64-byte chunks */ 
  
-    // append the len in bits at the end of the buffer.
-    to_bytes(initial_len*8, msg + new_len);
-    // initial_len>>29 == initial_len*8>>32, but avoids overflow.
-    to_bytes(initial_len>>29, msg + new_len + 4);
+  while (len >= 64) { 
+    memcpy(ctx->in, buf, 64); 
+    byteReverse(ctx->in, 16); 
+    md5Transform(ctx->buf, (uint32 *) ctx->in); 
+    buf += 64; 
+    len -= 64; 
+  } 
  
-    // Process the message in successive 512-bit chunks:
-    //for each 512-bit chunk of message:
-    for(offset=0; offset<new_len; offset += (512/8)) {
+  /* Handle any remaining bytes of data. */ 
  
-        // break chunk into sixteen 32-bit words w[j], 0 ≤ j ≤ 15
-        for (i = 0; i < 16; i++)
-            w[i] = to_int32(msg + offset + i*4);
+  memcpy(ctx->in, buf, len); 
+} 
  
-        // Initialize hash value for this chunk:
-        a = h0;
-        b = h1;
-        c = h2;
-        d = h3;
+/* 
+ * Final wrapup - pad to 64-byte boundary with the bit pattern 
+ * 1 0* (64-bit count of bits processed, MSB-first) 
+ */ 
+void md5Final(unsigned char digest[16], struct MD5Context *ctx) { 
+  unsigned count; 
+  unsigned char *p; 
  
-        // Main loop:
-        for(i = 0; i<64; i++) {
+  /* Compute number of bytes mod 64 */ 
+  count = (ctx->bits[0] >> 3) & 0x3F; 
  
-            if (i < 16) {
-                f = (b & c) | ((~b) & d);
-                g = i;
-            } else if (i < 32) {
-                f = (d & b) | ((~d) & c);
-                g = (5*i + 1) % 16;
-            } else if (i < 48) {
-                f = b ^ c ^ d;
-                g = (3*i + 5) % 16;          
-            } else {
-                f = c ^ (b | (~d));
-                g = (7*i) % 16;
-            }
+  /* Set the first char of padding to 0x80. This is safe since there is 
+   always at least one byte free */ 
+  p = ctx->in + count; 
+  *p++ = 0x80; 
  
-            temp = d;
-            d = c;
-            c = b;
-            b = b + LEFTROTATE((a + f + k[i] + w[g]), r[i]);
-            a = temp;
+  /* Bytes of padding needed to make 64 bytes */ 
+  count = 64 - 1 - count; 
  
-        }
+  /* Pad out to 56 mod 64 */ 
+  if (count < 8) { 
+    /* Two lots of padding: Pad the first block to 64 bytes */ 
+    memset(p, 0, count); 
+    byteReverse(ctx->in, 16); 
+    md5Transform(ctx->buf, (uint32 *) ctx->in); 
  
-        // Add this chunk's hash to result so far:
-        h0 += a;
-        h1 += b;
-        h2 += c;
-        h3 += d;
+    /* Now fill the next block with 56 bytes */ 
+    memset(ctx->in, 0, 56); 
+  } else { 
+    /* Pad block to 56 bytes */ 
+    memset(p, 0, count - 8); 
+  } byteReverse(ctx->in, 14); 
  
-    }
+  /* Append length in bits and transform */ 
+  //((uint32 *) ctx->in)[14] = ctx->bits[0]; 
+  //((uint32 *) ctx->in)[15] = ctx->bits[1]; 
+  putu32(ctx->bits[0], ctx->in + 56); 
+  putu32(ctx->bits[1], ctx->in + 60); 
  
-    // cleanup
-    free(msg);
+  md5Transform(ctx->buf, (uint32 *) ctx->in); 
+  byteReverse((unsigned char *) ctx->buf, 4); 
+  memcpy(digest, ctx->buf, 16); 
+  memset(ctx, 0, sizeof(*ctx)); /* In case it's sensitive */ 
+} 
  
-    //var char digest[16] := h0 append h1 append h2 append h3 //(Output is in little-endian)
-    to_bytes(h0, digest);
-    to_bytes(h1, digest + 4);
-    to_bytes(h2, digest + 8);
-    to_bytes(h3, digest + 12);
-}
+#ifndef ASM_MD5 
+ 
+/* The four core functions - F1 is optimized somewhat */ 
+ 
+/* #define F1(x, y, z) (x & y | ~x & z) */ 
+#define F1(x, y, z) (z ^ (x & (y ^ z))) 
+#define F2(x, y, z) F1(z, x, y) 
+#define F3(x, y, z) (x ^ y ^ z) 
+#define F4(x, y, z) (y ^ (x | ~z)) 
+ 
+/* This is the central step in the MD5 algorithm. */ 
+#define MD5STEP(f, w, x, y, z, data, s) ( w += f(x, y, z) + data, w = w<<s | w>>(32-s), w += x ) 
+ 
+/* 
+ * The core of the MD5 algorithm, this alters an existing MD5 hash to 
+ * reflect the addition of 16 longwords of new data. MD5Update blocks 
+ * the data and converts bytes into longwords for this routine. 
+ */ 
+void md5Transform(uint32 buf[4], uint32 const in[16]) { 
+  register uint32 a, b, c, d; 
+ 
+  a = buf[0]; 
+  b = buf[1]; 
+  c = buf[2]; 
+  d = buf[3]; 
+ 
+  MD5STEP(F1, a, b, c, d, in[0] + 0xd76aa478, 7); 
+  MD5STEP(F1, d, a, b, c, in[1] + 0xe8c7b756, 12); 
+  MD5STEP(F1, c, d, a, b, in[2] + 0x242070db, 17); 
+  MD5STEP(F1, b, c, d, a, in[3] + 0xc1bdceee, 22); 
+  MD5STEP(F1, a, b, c, d, in[4] + 0xf57c0faf, 7); 
+  MD5STEP(F1, d, a, b, c, in[5] + 0x4787c62a, 12); 
+  MD5STEP(F1, c, d, a, b, in[6] + 0xa8304613, 17); 
+  MD5STEP(F1, b, c, d, a, in[7] + 0xfd469501, 22); 
+  MD5STEP(F1, a, b, c, d, in[8] + 0x698098d8, 7); 
+  MD5STEP(F1, d, a, b, c, in[9] + 0x8b44f7af, 12); 
+  MD5STEP(F1, c, d, a, b, in[10] + 0xffff5bb1, 17); 
+  MD5STEP(F1, b, c, d, a, in[11] + 0x895cd7be, 22); 
+  MD5STEP(F1, a, b, c, d, in[12] + 0x6b901122, 7); 
+  MD5STEP(F1, d, a, b, c, in[13] + 0xfd987193, 12); 
+  MD5STEP(F1, c, d, a, b, in[14] + 0xa679438e, 17); 
+  MD5STEP(F1, b, c, d, a, in[15] + 0x49b40821, 22); 
+ 
+  MD5STEP(F2, a, b, c, d, in[1] + 0xf61e2562, 5); 
+  MD5STEP(F2, d, a, b, c, in[6] + 0xc040b340, 9); 
+  MD5STEP(F2, c, d, a, b, in[11] + 0x265e5a51, 14); 
+  MD5STEP(F2, b, c, d, a, in[0] + 0xe9b6c7aa, 20); 
+  MD5STEP(F2, a, b, c, d, in[5] + 0xd62f105d, 5); 
+  MD5STEP(F2, d, a, b, c, in[10] + 0x02441453, 9); 
+  MD5STEP(F2, c, d, a, b, in[15] + 0xd8a1e681, 14); 
+  MD5STEP(F2, b, c, d, a, in[4] + 0xe7d3fbc8, 20); 
+  MD5STEP(F2, a, b, c, d, in[9] + 0x21e1cde6, 5); 
+  MD5STEP(F2, d, a, b, c, in[14] + 0xc33707d6, 9); 
+  MD5STEP(F2, c, d, a, b, in[3] + 0xf4d50d87, 14); 
+  MD5STEP(F2, b, c, d, a, in[8] + 0x455a14ed, 20); 
+  MD5STEP(F2, a, b, c, d, in[13] + 0xa9e3e905, 5); 
+  MD5STEP(F2, d, a, b, c, in[2] + 0xfcefa3f8, 9); 
+  MD5STEP(F2, c, d, a, b, in[7] + 0x676f02d9, 14); 
+  MD5STEP(F2, b, c, d, a, in[12] + 0x8d2a4c8a, 20); 
+ 
+  MD5STEP(F3, a, b, c, d, in[5] + 0xfffa3942, 4); 
+  MD5STEP(F3, d, a, b, c, in[8] + 0x8771f681, 11); 
+  MD5STEP(F3, c, d, a, b, in[11] + 0x6d9d6122, 16); 
+  MD5STEP(F3, b, c, d, a, in[14] + 0xfde5380c, 23); 
+  MD5STEP(F3, a, b, c, d, in[1] + 0xa4beea44, 4); 
+  MD5STEP(F3, d, a, b, c, in[4] + 0x4bdecfa9, 11); 
+  MD5STEP(F3, c, d, a, b, in[7] + 0xf6bb4b60, 16); 
+  MD5STEP(F3, b, c, d, a, in[10] + 0xbebfbc70, 23); 
+  MD5STEP(F3, a, b, c, d, in[13] + 0x289b7ec6, 4); 
+  MD5STEP(F3, d, a, b, c, in[0] + 0xeaa127fa, 11); 
+  MD5STEP(F3, c, d, a, b, in[3] + 0xd4ef3085, 16); 
+  MD5STEP(F3, b, c, d, a, in[6] + 0x04881d05, 23); 
+  MD5STEP(F3, a, b, c, d, in[9] + 0xd9d4d039, 4); 
+  MD5STEP(F3, d, a, b, c, in[12] + 0xe6db99e5, 11); 
+  MD5STEP(F3, c, d, a, b, in[15] + 0x1fa27cf8, 16); 
+  MD5STEP(F3, b, c, d, a, in[2] + 0xc4ac5665, 23); 
+ 
+  MD5STEP(F4, a, b, c, d, in[0] + 0xf4292244, 6); 
+  MD5STEP(F4, d, a, b, c, in[7] + 0x432aff97, 10); 
+  MD5STEP(F4, c, d, a, b, in[14] + 0xab9423a7, 15); 
+  MD5STEP(F4, b, c, d, a, in[5] + 0xfc93a039, 21); 
+  MD5STEP(F4, a, b, c, d, in[12] + 0x655b59c3, 6); 
+  MD5STEP(F4, d, a, b, c, in[3] + 0x8f0ccc92, 10); 
+  MD5STEP(F4, c, d, a, b, in[10] + 0xffeff47d, 15); 
+  MD5STEP(F4, b, c, d, a, in[1] + 0x85845dd1, 21); 
+  MD5STEP(F4, a, b, c, d, in[8] + 0x6fa87e4f, 6); 
+  MD5STEP(F4, d, a, b, c, in[15] + 0xfe2ce6e0, 10); 
+  MD5STEP(F4, c, d, a, b, in[6] + 0xa3014314, 15); 
+  MD5STEP(F4, b, c, d, a, in[13] + 0x4e0811a1, 21); 
+  MD5STEP(F4, a, b, c, d, in[4] + 0xf7537e82, 6); 
+  MD5STEP(F4, d, a, b, c, in[11] + 0xbd3af235, 10); 
+  MD5STEP(F4, c, d, a, b, in[2] + 0x2ad7d2bb, 15); 
+  MD5STEP(F4, b, c, d, a, in[9] + 0xeb86d391, 21); 
+ 
+  buf[0] += a; 
+  buf[1] += b; 
+  buf[2] += c; 
+  buf[3] += d; 
+} 
+ 
+/* 
+ * get MD5 of a byte buffer 
+ */ 
+int GetBytesMD5(const unsigned char* src, unsigned int length, char* md5) { 
+  unsigned char i = 0; 
+  unsigned char md5Bytes[16] = { 0 }; 
+  MD5_CTX context; 
+  if (src == NULL || md5 == NULL) 
+  { 
+    return -1; 
+  } 
+  md5Init(&context); 
+  md5Update(&context, src, length); 
+  md5Final(md5Bytes, &context); 
+  for (i = 0; i < 16; i++) { 
+    sprintf(md5, "%02X", md5Bytes[i]); 
+    md5 += 2; 
+  } 
+  *md5 = '\0'; 
+  return 0; 
+} 
+ 
+/* 
+ * get MD5 for a string 
+ */ 
+int GetStringMD5(const char* src, char* md5) { 
+  return GetBytesMD5((unsigned char*) src, strlen((char*) src), md5); 
+} 
+ 
+/** 
+ * get MD5 of a file 
+ */ 
+int GetFileMD5(const char* path, char* md5) { 
+  FILE* fp = NULL; 
+  unsigned char buffer[MD5_FILE_BUFFER_LEN] = { 0 }; 
+  int count = 0; 
+  MD5_CTX context; 
+  unsigned char md5Bytes[16] = { 0 }; 
+  int i; 
+  if (path == NULL || md5 == NULL) { 
+    return -1; 
+  } 
+  fp = fopen(path, "rb"); 
+  if (fp == NULL) { 
+    return -1; 
+  } 
+  md5Init(&context); 
+  while ((count = fread(buffer, 1, MD5_FILE_BUFFER_LEN, fp)) > 0) { 
+    md5Update(&context, buffer, count); 
+  } 
+  md5Final(md5Bytes, &context); 
+  for (i = 0; i < 16; i++) { 
+    sprintf(md5, "%02X", md5Bytes[i]); 
+    md5 += 2; 
+  } 
+  *md5 = '\0'; 
+  return 0; 
+} 
+ 
+#endif 
+
