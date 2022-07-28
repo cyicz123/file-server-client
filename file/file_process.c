@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-27 20:13:16
+ * @LastEditTime: 2022-07-28 09:38:10
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -92,9 +92,9 @@ uint64_t GetFileSize(const char* file_path)
  * @param {uint16_t} length 数组长度
  * @param {uint16_t} index 读取数据的序号
  * @param {uint32_t} file_size 整个文件的大小，单位Byte
- * @return {size_t} 已经读取的字节数,0代表失败
+ * @return {uint16_t} 已经读取的字节数,0代表失败
  */
-size_t ReadData(FILE* fd,uint8_t* buf,const size_t length, const uint16_t index, const uint32_t file_size)
+uint16_t ReadData(FILE* fd,uint8_t* buf,const size_t length, const uint16_t index, const uint32_t file_size)
 {
     off_t offset = (index-1)*length;  
     if(fseeko(fd, offset, SEEK_SET) == -1)

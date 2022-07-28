@@ -2,14 +2,16 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 09:56:12
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-27 20:15:57
+ * @LastEditTime: 2022-07-28 09:37:14
  * @FilePath: /tcp-server/main.c
  */
 #include "md5/md5.h"
 #include "file/file_process.h"
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
-#define DATA_SIZE 65536
+#define DATA_SIZE 65535
 
 int main(int argc, char* argv[])
 {
@@ -34,7 +36,7 @@ int main(int argc, char* argv[])
     for (uint16_t index=1 ; (index-1)*DATA_SIZE<size ; index++) {
         memset((uint8_t*)buf, 0, DATA_SIZE);
         read_byte_size = ReadData(fd, buf, DATA_SIZE, index, size);
-        printf("index: %d, size: %d\n",index,read_byte_size);
+        printf("index: %u, size: %u\n",index,read_byte_size);
     }
     CloseFile(fd);
     return 0;
