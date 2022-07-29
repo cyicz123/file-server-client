@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-28 11:31:08
+ * @LastEditTime: 2022-07-29 16:38:34
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -51,3 +51,6 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  * @return {int} 0 成功 1 失败
  */
 int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, const uint32_t length);
+
+
+int ExitFile();

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-29 16:09:12
+ * @LastEditTime: 2022-07-29 16:41:02
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -19,7 +19,7 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#include "../str/int2string.h"
+#include "../str/strUtils.h"
 #include "file_process.h"
 #include <stdio.h>
 #include <sys/stat.h>
