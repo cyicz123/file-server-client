@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 09:49:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-29 15:08:10
+ * @LastEditTime: 2022-07-29 15:16:10
  * @FilePath: /tcp-server/main.c
  * @Description: 主函数
  */
@@ -12,6 +12,7 @@
 #include <libgen.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define DATA_SIZE 1048576
@@ -52,7 +53,8 @@ int main(int argc, char* argv[])
         
         GetStrMD5(buf, DATA_SIZE, decrypt);
         
-        WriteData(basename(path), index, buf, read_byte_size);
+        int result=WriteData(basename(path), index, buf, read_byte_size);
+        
     }
     free(prefix);
     CloseFile(fd);
@@ -61,6 +63,6 @@ int main(int argc, char* argv[])
     {
         printf("%02x", decrypt[i]);
     }
-
+    printf("\n");
     return 0;
 }

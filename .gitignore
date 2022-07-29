@@ -54,6 +54,6 @@ dkms.conf
 .*/
 build
 .*/
-test*
+*test*
 *.iso
 ubuntu*

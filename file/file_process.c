@@ -2,13 +2,16 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-28 15:26:50
+ * @LastEditTime: 2022-07-29 16:09:12
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
 #ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #endif
 
@@ -120,7 +123,7 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
 }
 
 /**
- * @description: 将二进制字节写入一个文件，一般文件名为：.文件前缀{md5校验值}-序号.tmp
+ * @description: 将二进制字节写入一个文件，一般文件名为：.文件前缀{md5校验值}-序号
  * @param {char*} prefix 文件前缀
  * @param {uint32_t} index 报文序号
  * @param {uint8_t*} buf 二进制数据数组
@@ -129,10 +132,14 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  */
 int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, const uint32_t length)
 {
-    char* path = (char*)malloc(33 * sizeof(char));
-    char* index_s = (char*)malloc(10 * sizeof(char));
+    int index_s_length = GetIntDigit(index) + 1;
+    char* index_s = (char*)malloc(index_s_length * sizeof(char));
     Uint32ToStr(index_s, index);
-    snprintf(path, 33 * sizeof(char), ".%s-%s.tmp", prefix, index_s);
+    
+    size_t path_length = (strlen(prefix) + strlen(index_s) + 2 + 1) * sizeof(char); //6为.%s-%s中的固定字符数量, +1为\0
+    char* path = (char*)malloc(path_length * sizeof(char));
+
+    snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, index_s);
     free(index_s);
 
 
@@ -155,6 +162,8 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
         return 1;
     }
     
+    free(path);
+    fclose(file);
     return 0;
 }
     
