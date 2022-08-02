@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-29 16:41:02
+ * @LastEditTime: 2022-08-02 17:16:25
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -23,11 +23,13 @@
 #include "file_process.h"
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #define MAX_FILE_SIZE (off_t)(4294967295) //最大4GB
+#define MERGE_FILE_READ_BUF_SIZE 1024
 
 /**
- * @description: 打开文件，同时对文件进行检查是否大于4GB。
+ * @description: 以rb模式打开文件，同时对文件进行检查是否大于4GB。
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
@@ -56,6 +58,23 @@ FILE* ReadFile(const char* file_path)
 
     return fd;
     
+}
+
+/**
+ * @description: 以wb模式打开文件
+ * @param {char*} file_path 欲打开的文件路径
+ * @return {FILE*} fd 如果为NULL说明打开失败
+ */
+FILE* WriteFile(const char* file_path)
+{
+    FILE* fd = NULL;
+    fd = fopen(file_path, "wb");
+    if (fd == NULL)
+    {
+        printf("Can't open the file.\n");
+        return NULL;
+    }
+    return fd;
 }
 
 /**
@@ -96,29 +115,19 @@ uint64_t GetFileSize(const char* file_path)
  * @param {uint8_t*} buf 存放数据的数组
  * @param {uint32_t} length 数组长度
  * @param {uint32_t} index 读取数据的序号
- * @param {uint64_t} file_size 整个文件的大小，单位Byte
  * @return {uint32_t} 已经读取的字节数,0代表失败
  */
-uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t index, const uint64_t file_size)
+uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t index)
 {
-    off_t offset = (index-1)*length;  
+    off_t offset = index*length;  
     if(fseeko(fd, offset, SEEK_SET) == -1)
     {
         printf("Set the fd point failed.\n");
         return 0;
     }
     uint32_t read_size=fread(buf, 1,length, fd);
-    if (read_size == length) 
-    {
-        return read_size;
-    }
 
-    if(read_size == (file_size-offset)) //最后一个报文的长度
-    {
-        return read_size;
-    }
-
-    return 0;
+    return read_size;
 
 }
 
@@ -136,7 +145,7 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
     char* index_s = (char*)malloc(index_s_length * sizeof(char));
     Uint32ToStr(index_s, index);
     
-    size_t path_length = (strlen(prefix) + strlen(index_s) + 2 + 1) * sizeof(char); //6为.%s-%s中的固定字符数量, +1为\0
+    size_t path_length = (strlen(prefix) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
     char* path = (char*)malloc(path_length * sizeof(char));
 
     snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, index_s);
@@ -167,3 +176,43 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
     return 0;
 }
     
+/**
+ * @description: 打开路径为path的小文件，写入fd末尾。
+ * @param {FILE*} fd 待写入的文件描述符
+ * @param {char*} path 待合并的小文件的路径
+ * @return {int} 0 成功 1 失败 
+ */
+int MergeFile(FILE* fd, const char* path)
+{
+    FILE* rd_fd = ReadFile(path);
+    if (fd == NULL) 
+    {
+        return 1;
+    }
+    int read_buf_size = 0, write_buf_size = 0;
+    uint8_t buf[MERGE_FILE_READ_BUF_SIZE];
+    while (!feof(rd_fd)) 
+    {
+        read_buf_size = fread((uint8_t*)buf, 1, MERGE_FILE_READ_BUF_SIZE, rd_fd); 
+        write_buf_size = fwrite((uint8_t*)buf, 1, read_buf_size, fd);
+        if (write_buf_size != read_buf_size) 
+        {
+            printf("The read and write operations are inconsistent.\n");
+            CloseFile(rd_fd);
+            return 1;
+        } 
+    }
+    return 0;
+}
+
+/**
+ * @description: 判断文件是否存在
+ * @param {char*} path 文件路径
+ * @return {int} 0 不存在 1 存在
+ */
+int ExistFile(const char* path)
+{
+    if(!access(path, F_OK))
+        return 1;
+    return 0;
+}

@@ -2,12 +2,13 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-26 14:45:16
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-07-28 19:11:53
+ * @LastEditTime: 2022-08-02 15:33:34
  * @FilePath: /tcp-server/md5/md5.c
  * @Description: 计算文件或者字符串的md5
  * 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "md5.h"
+#include <stdio.h>
 #include <string.h>
 
 #define F(x, y, z) ((x & y) | (~x & z))
@@ -243,7 +244,7 @@ int GetStrMD5(unsigned char* str, size_t length, uint8_t* decrypt)
 {
     MD5_CTX md5;
     md5Init(&md5);
-    md5Update(&md5, str, strlen((char*)str));
+    md5Update(&md5, str, length);
     md5Final(&md5, decrypt);
 
     return 0;
