@@ -2,9 +2,9 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-02 15:48:57
+ * @LastEditTime: 2022-08-06 10:39:43
  * @FilePath: /tcp-server/string/int2string.h
- * @Description: 整数转字符串
+ * @Description: 字符串处理工具函数
  */
 #include <math.h>
 #include <stdint.h>
@@ -54,4 +54,21 @@ int Byte2Str(const uint8_t* buf, int length, char* result)
     }
     result[2*length]='\0';
     return 0;
+}
+
+/**
+ * @description: 逐字节比较两字节数组是否相同
+ * @param {uint8_t*} s1 字节数组1
+ * @param {uint8_t*} s2 字节数组2
+ * @param {int} size 字节长度
+ * @return {int} 0 不相同 1 相同
+ */
+int CompareByte(const uint8_t* s1, const uint8_t* s2, int size)
+{
+    for(size_t i=0; i<size; i++)
+    {
+        if(s1[i] != s2[i])
+            return 0;
+    }
+    return 1;
 }

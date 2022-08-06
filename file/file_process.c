@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-02 17:16:25
+ * @LastEditTime: 2022-08-05 10:10:12
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -215,4 +215,20 @@ int ExistFile(const char* path)
     if(!access(path, F_OK))
         return 1;
     return 0;
+}
+
+/**
+ * @description: 根据每个分割块大小和总文件大小计算得到分割块总数
+ * @param {uint64_t} file_size 总文件大小
+ * @param {uint32_t} block_size 分割块大小
+ * @return {uint32_t} block_num 分割块总数
+ */
+uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size)
+{
+    uint32_t block_num = 0;
+    if(file_size % block_size == 0)
+        block_num = file_size / block_size;
+    else
+        block_num = file_size / block_size + 1;
+    return block_num;
 }

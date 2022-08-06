@@ -1,27 +1,18 @@
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <strings.h>
-#include <string.h>
-#include <stdint.h>
-#include <errno.h>
 #include <arpa/inet.h>
-#include <ctype.h>
-#include <pthread.h> //pthread header
+#include <cstdint>
+#include <cstdio>
+#include <errno.h>
+#include <hiredis/read.h>
+#include <sys/socket.h>
+#include <hiredis/hiredis.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
+#include "file/file_process.h"
+#include "md5/md5.h"
 #include "network/network.h"
-
-// define SockInfo struct
-typedef struct SockInfo{
-	int fd;
-	struct sockaddr_in addr;
-	pthread_t tid;
-}SockInfo;
+#include "str/strUtils.h"
 
 // thread handler function
 void *pth_fun(void *arg){
@@ -29,31 +20,141 @@ void *pth_fun(void *arg){
 
 	SendProtocol sp;
 	QueryBuf qb;
+	RecvProtocol rp;
 	size_t buf_size=0;
+	int trans_flag = 1;
+	char md5[33]={'\0'};
+	redisContext* conn = redisConnect("127.0.0.1", 6379);  
+	redisReply* reply;
 
-	char buff[512*1024+16*sizeof(uint8_t)+sizeof(uint32_t)]; //32个字节表示协议长度，16个字节装md5校验码，剩下512k装数据。
-	memset(&sp, 0, sizeof(sp));
-	memset(buff, 0, sizeof(buff));
-	memset(&qb, 0, sizeof(qb));
-
-	int debug_1 = recv(info->fd, &sp, sizeof(sp), 0);
-	if(sp.head == 0x0000)
+    if(conn == NULL || conn->err)
 	{
-		printf("Receive a query message.\n");
-		int debug_2 = recv(info->fd, &qb, sizeof(qb), 0);
-		buf_size = sp.buf_length - sizeof(qb);
-		char *file_name = (char*)malloc((buf_size+1)*sizeof(char));
-		int debug_3 = recv(info->fd, file_name, buf_size, 0);
-		file_name[buf_size] = '\0';
-		printf("File name is %s\n",file_name);
-		free(file_name);
+		printf("connection error:%s\n", conn->errstr);  
+		close(info->fd);
+		redisFree(conn); 
+		pthread_exit(NULL);
 	}
 
+	while(trans_flag)
+	{
+		uint8_t* data_buf;
+		memset(&sp, 0, sizeof(sp));
+		memset(&qb, 0, sizeof(qb));
+		memset(&rp, 0, sizeof(rp));
+
+		if(Receive(info->fd, &sp, sizeof(sp)) == 1)
+		{
+			close(info->fd);
+			redisFree(conn); 
+			pthread_exit(NULL);
+		}
+		if(sp.head == 0x0000)
+		{
+			printf("Receive a query message.\n");
+			if(Receive(info->fd, &qb, sizeof(qb)) == 1)
+			{
+				close(info->fd);
+				redisFree(conn); 
+				pthread_exit(NULL);
+			}
+			buf_size = sp.buf_length - sizeof(qb);
+			char *file_name = (char*)malloc((buf_size+1)*sizeof(char));
+			if(Receive(info->fd, file_name, buf_size) == 1)
+			{
+				close(info->fd);
+				free(file_name);
+				redisFree(conn); 
+				pthread_exit(NULL);
+			}
+			file_name[buf_size] = '\0';
+			
+			Byte2Str(qb.checksum, 16, md5);
+			reply = redisCommand(conn, "exists %s", md5);
+			if (reply->integer == 1) 
+			{
+				freeReplyObject(reply);
+				reply = redisCommand(conn, "hget %s index", md5);
+				if (reply->type != REDIS_REPLY_STRING) 
+				{
+					free(file_name);
+					close(info->fd);
+					redisFree(conn); 
+					pthread_exit(NULL);
+				}
+				rp.index = atol(reply->str);
+				freeReplyObject(reply);
+				reply = redisCommand(conn, "hget %s block_num", md5);
+				uint32_t block_num = atol(reply->str);
+				freeReplyObject(reply);
+				if(sp.index != block_num)
+				{
+					rp.head = 0x0000;
+					rp.size = 0xffffffff;
+					send(info->fd,&rp,sizeof(rp),0);
+				}
+				else 
+				{
+					
+				}
+			}
+			else if(reply->integer == 0)
+			{
+				freeReplyObject(reply);
+				uint32_t block_num = GetBlockNum(qb.file_size, qb.block_size);
+				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d index %d block_num %d", md5, qb.file_size, file_name, qb.block_size, 0, block_num);  
+    			freeReplyObject(reply);  
+				reply = redisCommand(conn, "setbit %s %ld 0", md5, block_num);
+				freeReplyObject(reply);
+				rp.head = 0x0000;
+				rp.index = 0;
+				rp.size = 0xffffffff;
+				send(info->fd,&rp,sizeof(rp),0);
+			}
+
+			free(file_name);
+			
+		}
+		else if(sp.head == 0x0001)
+		{
+			printf("Receive a data buf.\n");
+			uint8_t checksum[16] = {0}, decrypt[16]={0};
+			if(Receive(info->fd, checksum, 16) == 1)
+			{
+				close(info->fd);
+				redisFree(conn); 
+				pthread_exit(NULL);
+			}
+			data_buf = (uint8_t*)malloc(sp.buf_length-16);
+			if(Receive(info->fd, data_buf, sp.buf_length-16) == 1)
+			{
+				free(data_buf);
+				close(info->fd);
+				redisFree(conn); 
+				pthread_exit(NULL);
+			}
+			GetStrMD5(data_buf, sp.buf_length-16, decrypt);
+			if(CompareByte(checksum, decrypt, 16) == 0)
+			{
+				printf("Checksum is wrong.Drop %d data.\n",sp.index);
+				reply = redisCommand(conn, "setbit %s %d 1",md5,sp.index);
+				freeReplyObject(reply);
+				free(data_buf);
+				continue;
+			}
+			printf("Writing %d data.\n",sp.index);
+			WriteData(md5, sp.index, data_buf, sp.buf_length - 16);
+			reply = redisCommand(conn, "hset %s index %d", md5, sp.index+1);
+			freeReplyObject(reply);
+		}
+	}
 	// print IP and port of client
 	printf("accept client IP:%s, port:%d\n", \
 			inet_ntoa(info->addr.sin_addr), \
 			ntohs(info->addr.sin_port));
 
+	close(info->fd);
+	pthread_exit(NULL);
+	redisFree(conn); 
 	// transfer
 	// while(1){
 	// 	memset(buff, 0, sizeof(buff));

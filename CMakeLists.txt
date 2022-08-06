@@ -5,7 +5,7 @@ SET(CMAKE_BUILD_TYPE "Debug")
 SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
 
-link_libraries(pthread)
+link_libraries(hiredis)
 add_subdirectory(md5)
 add_subdirectory(file)
 add_subdirectory(str)

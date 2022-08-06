@@ -2,10 +2,13 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-02 16:52:57
+ * @LastEditTime: 2022-08-05 10:08:31
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
+#ifndef FILE_H
+#define FILE_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -72,3 +75,12 @@ int MergeFile(FILE* fd, const char* path);
  * @return {int} 0 不存在 1 存在
  */
 int ExistFile(const char* path);
+
+/**
+ * @description: 根据每个分割块大小和总文件大小计算得到分割块总数
+ * @param {uint64_t} file_size 总文件大小
+ * @param {uint32_t} block_size 分割块大小
+ * @return {uint32_t} block_num 分割块总数
+ */
+uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size);
+#endif
