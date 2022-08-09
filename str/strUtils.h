@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-06 10:40:34
+ * @LastEditTime: 2022-08-09 09:35:27
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -42,5 +42,5 @@ int Byte2Str(const uint8_t* buf, int length, char* result);
  * @param {int} size 字节长度
  * @return {int} 0 不相同 1 相同
  */
-int CompareByte(const uint8_t* s1, const uint8_t* s2, int size);
+int CompareByte(const void* s1, const void* s2, int size);
 #endif

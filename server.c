@@ -1,8 +1,7 @@
 #include <arpa/inet.h>
-#include <cstdint>
-#include <cstdio>
 #include <errno.h>
 #include <hiredis/read.h>
+#include <stdio.h>
 #include <sys/socket.h>
 #include <hiredis/hiredis.h>
 #include <stdlib.h>
@@ -67,47 +66,60 @@ void *pth_fun(void *arg){
 				pthread_exit(NULL);
 			}
 			file_name[buf_size] = '\0';
-			
+		
 			Byte2Str(qb.checksum, 16, md5);
+			md5[32] = '\0';
 			reply = redisCommand(conn, "exists %s", md5);
 			if (reply->integer == 1) 
-			{
+			{	
 				freeReplyObject(reply);
-				reply = redisCommand(conn, "hget %s index", md5);
-				if (reply->type != REDIS_REPLY_STRING) 
+				reply = redisCommand(conn, "hget %s file_flag", md5);
+				
+				if (CompareByte(reply->str, "true", 4) == 1)
 				{
 					free(file_name);
-					close(info->fd);
-					redisFree(conn); 
-					pthread_exit(NULL);
+					freeReplyObject(reply);
+					trans_flag = 0;
+					continue;
 				}
-				rp.index = atol(reply->str);
 				freeReplyObject(reply);
 				reply = redisCommand(conn, "hget %s block_num", md5);
 				uint32_t block_num = atol(reply->str);
 				freeReplyObject(reply);
-				if(sp.index != block_num)
+				reply = redisCommand(conn, "bitpos BitMap-%s 0 0 %d bit",md5,block_num-1);
+				long long pos = reply->integer;
+				freeReplyObject(reply);
+				
+				reply = redisCommand(conn, "bitpos BitMap-%s 1 %d %d bit",pos+1,block_num-1);
+				long long new_pos = reply->integer;
+				freeReplyObject(reply);
+				
+				uint32_t window_size = 0;
+				if (new_pos != -1) 
 				{
-					rp.head = 0x0000;
-					rp.size = 0xffffffff;
-					send(info->fd,&rp,sizeof(rp),0);
+					window_size = new_pos - pos;
 				}
 				else 
 				{
-					
+					window_size = block_num - pos;	
 				}
+				
+				rp.head = 0x0000;
+				rp.index = pos;
+				rp.size = window_size;
+				send(info->fd,&rp,sizeof(rp),0);
 			}
-			else if(reply->integer == 0)
+			else
 			{
 				freeReplyObject(reply);
 				uint32_t block_num = GetBlockNum(qb.file_size, qb.block_size);
-				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d index %d block_num %d", md5, qb.file_size, file_name, qb.block_size, 0, block_num);  
+				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d block_num %d file_flag %s index 0", md5, qb.file_size, file_name, qb.block_size, block_num, "false");  
     			freeReplyObject(reply);  
-				reply = redisCommand(conn, "setbit %s %ld 0", md5, block_num);
+				reply = redisCommand(conn, "setbit BitMap-%s %d 0", md5, block_num);
 				freeReplyObject(reply);
 				rp.head = 0x0000;
 				rp.index = 0;
-				rp.size = 0xffffffff;
+				rp.size = block_num;
 				send(info->fd,&rp,sizeof(rp),0);
 			}
 
@@ -136,56 +148,97 @@ void *pth_fun(void *arg){
 			if(CompareByte(checksum, decrypt, 16) == 0)
 			{
 				printf("Checksum is wrong.Drop %d data.\n",sp.index);
-				reply = redisCommand(conn, "setbit %s %d 1",md5,sp.index);
-				freeReplyObject(reply);
 				free(data_buf);
 				continue;
 			}
 			printf("Writing %d data.\n",sp.index);
 			WriteData(md5, sp.index, data_buf, sp.buf_length - 16);
-			reply = redisCommand(conn, "hset %s index %d", md5, sp.index+1);
+			reply = redisCommand(conn, "setbit BitMap-%s %d 1", md5, sp.index);
 			freeReplyObject(reply);
 		}
+
+		if(trans_flag == 0)
+		{
+			reply = redisCommand(conn, "hget %s block_num", md5);
+			uint32_t block_num = atol(reply->str);
+			freeReplyObject(reply);
+
+			reply = redisCommand(conn, "hget %s index", md5);
+			size_t index = atol(reply->str);
+			freeReplyObject(reply);
+
+			FILE* write_fd = WriteFile(md5);
+			for(; index<block_num; index++)
+			{
+				int index_s_length = GetIntDigit(index) + 1;
+				char* index_s = (char*)malloc(index_s_length * sizeof(char));
+				Uint32ToStr(index_s, index);
+				
+				size_t path_length = (strlen(md5) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
+				char* data_path = (char*)malloc(path_length * sizeof(char));
+
+				snprintf(data_path, path_length * sizeof(char), ".%s-%s", md5, index_s);
+				free(index_s);
+
+				if(!ExistFile(data_path))
+				{
+					reply = redisCommand(conn, "hset %s index %d",md5,index);
+					freeReplyObject(reply);
+					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5,index);
+					freeReplyObject(reply);
+					trans_flag = 1;
+					CloseFile(write_fd);
+					free(data_path);
+					break;
+				}
+				MergeFile(write_fd, data_path);
+				remove(data_path);
+				free(data_path);
+			}
+			CloseFile(write_fd);
+			if(trans_flag == 0)
+			{
+				FILE* rd_fd = ReadFile(md5);
+				uint8_t decrypt[16] = {0};
+				char s_decrypt[33] = {'\0'};
+				GetFileMD5(rd_fd, decrypt);
+				Byte2Str(decrypt, 16, s_decrypt);
+				if (CompareByte(md5,s_decrypt,32) == 0) 
+				{
+					reply = redisCommand(conn, "del BitMap-%s", md5);
+					freeReplyObject(reply);
+					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5 , block_num - 1 );
+					freeReplyObject(reply);
+					rp.index = 0;
+					rp.head = 0x0000;
+					rp.size = block_num;
+					send(info->fd,&rp,sizeof(rp),0);
+					trans_flag = 1;
+				}
+				else 
+				{
+					rp.head = 0x0001;
+					send(info->fd,&rp,sizeof(rp),0);
+				}
+				CloseFile(write_fd);
+			}
+		}
 	}
-	// print IP and port of client
-	printf("accept client IP:%s, port:%d\n", \
-			inet_ntoa(info->addr.sin_addr), \
-			ntohs(info->addr.sin_port));
+		
+	
+	reply = redisCommand(conn, "hset %s file_flag true",md5);
+	freeReplyObject(reply);
 
 	close(info->fd);
-	pthread_exit(NULL);
-	redisFree(conn); 
-	// transfer
-	// while(1){
-	// 	memset(buff, 0, sizeof(buff));
-	// 	int read_ret = read(info->fd, buff, sizeof(buff));
-	// 	if(read_ret == -1 ){
-	// 		printf("err: read fail! caused by %s\n", strerror(errno));
-	// 		pthread_exit(NULL);
-	// 	}else if(read_ret == 0){
-	// 		printf("The client has closed!\n");
-	// 		close(info->fd);
-	// 		break;
-	// 	}
-
-	// 	printf("[IP:%s, port:%d] recv data:%s\n", \
-	// 			inet_ntoa(info->addr.sin_addr), \
-	// 			ntohs(info->addr.sin_port), buff);
-
-	// 	write(info->fd, buff, read_ret); // send buff to client
-	// }
+	redisFree(conn);
+	
 	return NULL;
 }
 
 int main(int argc, char* argv[])
 {
-	// check user input port
-	if(argc<2){
-		printf("eg: ./server port\n");
-		exit(1);
-	}
 
-	int port_nu = atoi(argv[1]); //	user input port number
+	int port_nu = atoi("8080"); //	user input port number
 
 	// 1.create a socket
 	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);

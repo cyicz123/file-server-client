@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 10:45:06
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-05 11:18:10
+ * @LastEditTime: 2022-08-09 16:42:51
  * @FilePath: /tcp-server/client.c
  * @Description: 客户端
  */
@@ -72,22 +72,18 @@ int main(int argc, char* argv[])
     
     recv_protocol.head = 0x0000;
     
+    query_buf.block_size = DATA_SIZE;
+    query_buf.file_size = file_size;
+    GetFileMD5(file_fd, query_buf.checksum);
+
+
 	while(1)
     {
 		// 查询
         send_protocol.head = 0x0000;
         send_protocol.index = 0;
-
-        query_buf.block_size = DATA_SIZE;
-        query_buf.file_size = file_size;
-        if(GetFileMD5(file_fd, query_buf.checksum) == 1)
-        {
-            printf("Calculate %s md5 failed.\n",file_name);
-            close(client_fd);
-            return 1;
-        }
-
         send_protocol.buf_length = sizeof(query_buf) + strlen(file_name);
+        
         send(client_fd,&send_protocol,sizeof(send_protocol),0);
         send(client_fd,&query_buf,sizeof(query_buf),0);
         send(client_fd,file_name,strlen(file_name),0);
