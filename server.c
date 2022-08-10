@@ -177,7 +177,7 @@ void *pth_fun(void *arg){
 				reply = redisCommand(conn, "hget %s block_num", md5);
 				uint32_t block_num = atol(reply->str);
 				freeReplyObject(reply);
-				reply = redisCommand(conn, "bitpos BitMap-%s 0 0 %d bit",md5,block_num-1);
+				reply = redisCommand(conn, "bitpos BitMap-%s 0 0 %d bit", md5, block_num-1);
 				long long pos = reply->integer;
 				freeReplyObject(reply);
 
@@ -189,7 +189,7 @@ void *pth_fun(void *arg){
 					continue;
 				}
 				
-				reply = redisCommand(conn, "bitpos BitMap-%s 1 %d %d bit",pos+1,block_num-1);
+				reply = redisCommand(conn, "bitpos BitMap-%s 1 %d %d bit", md5, pos+1, block_num-1);
 				long long new_pos = reply->integer;
 				freeReplyObject(reply);
 				

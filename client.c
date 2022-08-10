@@ -21,7 +21,7 @@
 #include "md5/md5.h"
 
 
-#define DATA_SIZE 1048576
+#define DATA_SIZE 1048576 //1MB 2^20B
 
 int main(int argc, char* argv[])
 {
@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
         send_protocol.head = 0x0000;
         send_protocol.index = 0;
         send_protocol.buf_length = sizeof(query_buf) + strlen(file_name);
-        
+
         send(client_fd,&send_protocol,sizeof(send_protocol),0);
         send(client_fd,&query_buf,sizeof(query_buf),0);
         send(client_fd,file_name,strlen(file_name),0);
