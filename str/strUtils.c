@@ -7,8 +7,10 @@
  * @Description: 字符串处理工具函数
  */
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "strUtils.h"
 
 
@@ -31,7 +33,7 @@ int GetIntDigit(uint32_t num)
 */
 int Uint32ToStr(char* str,uint32_t num)
 {
-    return snprintf(str, sizeof(str), "%u", num);
+    return snprintf(str, strlen(str), "%u", num);
 }
 
 /**

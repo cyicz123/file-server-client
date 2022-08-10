@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(tcp-server VERSION 0.0.1)
 
-SET(CMAKE_BUILD_TYPE "Debug") 
-SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
-SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
+SET(CMAKE_BUILD_TYPE "RELEASE") 
+SET(CMAKE_C_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
+SET(CMAKE_C_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
 
 link_libraries(hiredis)
 add_subdirectory(md5)
