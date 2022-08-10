@@ -34,13 +34,99 @@ void *pth_fun(void *arg){
 		pthread_exit(NULL);
 	}
 
-	while(trans_flag)
+	while(1)
 	{
+		if(trans_flag == 0)
+		{
+			// 服务端接收完全部数据收尾工作。合并所有文件，redis数据库标志位置为true
+
+			reply = redisCommand(conn, "hget %s block_num", md5);
+			uint32_t block_num = atol(reply->str);
+			freeReplyObject(reply);
+
+			reply = redisCommand(conn, "hget %s index", md5);
+			size_t index = atol(reply->str);
+			freeReplyObject(reply);
+
+			FILE* write_fd = WriteFile(md5);
+			for(; index<block_num; index++)
+			{
+				// 合并小数据包
+				int index_s_length = GetIntDigit(index) + 1;
+				char* index_s = (char*)malloc(index_s_length * sizeof(char));
+				Uint32ToStr(index_s, index);
+				
+				size_t path_length = (strlen(md5) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
+				char* data_path = (char*)malloc(path_length * sizeof(char));
+
+				snprintf(data_path, path_length * sizeof(char), ".%s-%s", md5, index_s);
+				free(index_s);
+				
+				if(!ExistFile(data_path))
+				{
+					// 此序号数据包不存在，让客户端重传此包。并将合并文件序号置为此序号
+					reply = redisCommand(conn, "hset %s index %d",md5,index);
+					freeReplyObject(reply);
+					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5,index);
+					freeReplyObject(reply);
+					// 数据包传输标志位重新置为1
+					trans_flag = 1;
+					CloseFile(write_fd);
+					free(data_path);
+					// 退出合并数据包循环
+					break;
+				}
+				MergeFile(write_fd, data_path);
+				remove(data_path);
+				free(data_path);
+			}
+			CloseFile(write_fd);
+			if(trans_flag == 0)
+			{
+				// 表示合并成功。进入校验文件部分。
+				FILE* rd_fd = ReadFile(md5);
+				uint8_t decrypt[16] = {0};
+				char s_decrypt[33] = {'\0'};
+				GetFileMD5(rd_fd, decrypt);
+				Byte2Str(decrypt, 16, s_decrypt);
+				if (CompareByte(md5,s_decrypt,32) == 0) 
+				{
+					// 校验失败，需要重传所有数据包，重置BitMap为全0
+					reply = redisCommand(conn, "del BitMap-%s", md5);
+					freeReplyObject(reply);
+					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5 , block_num - 1 );
+					freeReplyObject(reply);
+					rp.index = 0;
+					rp.head = 0x0000;
+					rp.size = block_num;
+					send(info->fd,&rp,sizeof(rp),0);
+					trans_flag = 1;
+					CloseFile(write_fd);
+					// 删除此错误文件
+					remove(md5);
+				}
+				else 
+				{
+					// 校验成功，发送确认报文
+					rp.head = 0x0001;
+					send(info->fd,&rp,sizeof(rp),0);
+					break;
+				}
+			}
+			else 
+			{
+				// 合并失败，重新循环，进入接收程序。
+				continue;
+			}
+			
+		}
+		// 接收程序部分
 		uint8_t* data_buf;
 		memset(&sp, 0, sizeof(sp));
 		memset(&qb, 0, sizeof(qb));
 		memset(&rp, 0, sizeof(rp));
 
+		// 接收报文头部
 		if(Receive(info->fd, &sp, sizeof(sp)) == 1)
 		{
 			close(info->fd);
@@ -49,6 +135,7 @@ void *pth_fun(void *arg){
 		}
 		if(sp.head == 0x0000)
 		{
+			// 查询报文
 			printf("Receive a query message.\n");
 			if(Receive(info->fd, &qb, sizeof(qb)) == 1)
 			{
@@ -72,15 +159,17 @@ void *pth_fun(void *arg){
 			reply = redisCommand(conn, "exists %s", md5);
 			if (reply->integer == 1) 
 			{	
+				// 该文件部分或全部已经传输过了。
 				freeReplyObject(reply);
 				reply = redisCommand(conn, "hget %s file_flag", md5);
 				
 				if (CompareByte(reply->str, "true", 4) == 1)
 				{
+					// 标志位为true，说明要传输的文件已存在。设置传输数据标志位为0,跳出socket连接循环
 					free(file_name);
 					freeReplyObject(reply);
 					trans_flag = 0;
-					continue;
+					break;
 				}
 				freeReplyObject(reply);
 				reply = redisCommand(conn, "hget %s block_num", md5);
@@ -89,6 +178,14 @@ void *pth_fun(void *arg){
 				reply = redisCommand(conn, "bitpos BitMap-%s 0 0 %d bit",md5,block_num-1);
 				long long pos = reply->integer;
 				freeReplyObject(reply);
+
+				if (pos == -1)
+				{
+					// 说明报文全部收到，需要进入合并文件程序。传输数据标志为0，重新开始循环。
+					free(file_name);
+					trans_flag = 0;
+					continue;
+				}
 				
 				reply = redisCommand(conn, "bitpos BitMap-%s 1 %d %d bit",pos+1,block_num-1);
 				long long new_pos = reply->integer;
@@ -97,10 +194,12 @@ void *pth_fun(void *arg){
 				uint32_t window_size = 0;
 				if (new_pos != -1) 
 				{
+					// 说明从pos到末尾有已经接收了的数据包。
 					window_size = new_pos - pos;
 				}
 				else 
 				{
+					// 说明后面全都没被接收。
 					window_size = block_num - pos;	
 				}
 				
@@ -111,6 +210,7 @@ void *pth_fun(void *arg){
 			}
 			else
 			{
+				// 文件没有被传输过。
 				freeReplyObject(reply);
 				uint32_t block_num = GetBlockNum(qb.file_size, qb.block_size);
 				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d block_num %d file_flag %s index 0", md5, qb.file_size, file_name, qb.block_size, block_num, "false");  
@@ -128,6 +228,7 @@ void *pth_fun(void *arg){
 		}
 		else if(sp.head == 0x0001)
 		{
+			// 数据报文
 			printf("Receive a data buf.\n");
 			uint8_t checksum[16] = {0}, decrypt[16]={0};
 			if(Receive(info->fd, checksum, 16) == 1)
@@ -157,75 +258,10 @@ void *pth_fun(void *arg){
 			freeReplyObject(reply);
 		}
 
-		if(trans_flag == 0)
-		{
-			reply = redisCommand(conn, "hget %s block_num", md5);
-			uint32_t block_num = atol(reply->str);
-			freeReplyObject(reply);
-
-			reply = redisCommand(conn, "hget %s index", md5);
-			size_t index = atol(reply->str);
-			freeReplyObject(reply);
-
-			FILE* write_fd = WriteFile(md5);
-			for(; index<block_num; index++)
-			{
-				int index_s_length = GetIntDigit(index) + 1;
-				char* index_s = (char*)malloc(index_s_length * sizeof(char));
-				Uint32ToStr(index_s, index);
-				
-				size_t path_length = (strlen(md5) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
-				char* data_path = (char*)malloc(path_length * sizeof(char));
-
-				snprintf(data_path, path_length * sizeof(char), ".%s-%s", md5, index_s);
-				free(index_s);
-
-				if(!ExistFile(data_path))
-				{
-					reply = redisCommand(conn, "hset %s index %d",md5,index);
-					freeReplyObject(reply);
-					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5,index);
-					freeReplyObject(reply);
-					trans_flag = 1;
-					CloseFile(write_fd);
-					free(data_path);
-					break;
-				}
-				MergeFile(write_fd, data_path);
-				remove(data_path);
-				free(data_path);
-			}
-			CloseFile(write_fd);
-			if(trans_flag == 0)
-			{
-				FILE* rd_fd = ReadFile(md5);
-				uint8_t decrypt[16] = {0};
-				char s_decrypt[33] = {'\0'};
-				GetFileMD5(rd_fd, decrypt);
-				Byte2Str(decrypt, 16, s_decrypt);
-				if (CompareByte(md5,s_decrypt,32) == 0) 
-				{
-					reply = redisCommand(conn, "del BitMap-%s", md5);
-					freeReplyObject(reply);
-					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5 , block_num - 1 );
-					freeReplyObject(reply);
-					rp.index = 0;
-					rp.head = 0x0000;
-					rp.size = block_num;
-					send(info->fd,&rp,sizeof(rp),0);
-					trans_flag = 1;
-				}
-				else 
-				{
-					rp.head = 0x0001;
-					send(info->fd,&rp,sizeof(rp),0);
-				}
-				CloseFile(write_fd);
-			}
-		}
-	}
 		
+	}
 	
+	// 说明已经成功收到文件，设置文件接收标志位为true
 	reply = redisCommand(conn, "hset %s file_flag true",md5);
 	freeReplyObject(reply);
 
