@@ -169,6 +169,8 @@ void *pth_fun(void *arg){
 					free(file_name);
 					freeReplyObject(reply);
 					trans_flag = 0;
+					rp.head = 0x0001;
+					send(info->fd,&rp,sizeof(rp),0);
 					break;
 				}
 				freeReplyObject(reply);
