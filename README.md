@@ -57,3 +57,6 @@ The file is larger than 4GB.
 按`ctrl c`取消传输后，重新执行命令即可断点续传
 ![断点续传](https://image.cyicz123.top/i/2022/08/11/h0n5j2.png)
 可见重新执行传输命令后，从中断位置开始发送数据。
+### 传输成功
+![传输成功](https://image.cyicz123.top/i/2022/08/12/hgynzs.png)
+（添加了日志模块）

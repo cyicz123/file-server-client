@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(tcp-server VERSION 0.1.0)
 
-SET(CMAKE_BUILD_TYPE "DEBUG") 
+SET(CMAKE_BUILD_TYPE "RELEASE") 
 SET(CMAKE_C_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
 SET(CMAKE_C_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
 
