@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 10:45:06
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-10 15:54:51
+ * @LastEditTime: 2022-08-11 16:02:18
  * @FilePath: /tcp-server/client.c
  * @Description: 客户端
  */
@@ -19,6 +19,8 @@
 #include "network/network.h"
 #include "file/file_process.h"
 #include "md5/md5.h"
+#include "log/log.h"
+#include "str/strUtils.h"
 
 
 #define DATA_SIZE 1048576 //1MB 2^20B
@@ -41,8 +43,10 @@ int main(int argc, char* argv[])
 
     const char* s_port = "8080"; 
 	int port = atoi(s_port);
+    log_info("Set connect port %d.", port);
 	// 创建套接字
 	int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+    log_info("Create a socket.");
 
 	// 连接服务器
 	struct sockaddr_in server_addr;
@@ -52,14 +56,16 @@ int main(int argc, char* argv[])
 	//server_addr.sin_addr.s_addr = htonl();
 	if(inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr.s_addr) != 1)
     {
-        printf("Set the IP address failed.\n");
+        // printf("Set the IP address failed.\n");
+        log_error("Set the IP address failed.");
         return 1;
     }
 
 	// 3.connect
 	if(connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0)
     {
-        printf("Connect the server failed.\n");
+        // printf("Connect the server failed.\n");
+        log_error("Connect the server failed.");
         return 1;
     }
     
@@ -74,8 +80,11 @@ int main(int argc, char* argv[])
     
     query_buf.block_size = DATA_SIZE;
     query_buf.file_size = file_size;
+    log_info("Calculating %s's md5...", file_name);
     GetFileMD5(file_fd, query_buf.checksum);
-
+    char s_md5[33] = {'\0'};
+    Byte2Str(query_buf.checksum, 16, s_md5);
+    log_info("%s's md5 is %s", file_name, s_md5);
 
 	while(1)
     {
@@ -83,21 +92,25 @@ int main(int argc, char* argv[])
         send_protocol.head = 0x0000;
         send_protocol.index = 0;
         send_protocol.buf_length = sizeof(query_buf) + strlen(file_name);
-
+        
+        // printf("Sending a query message.\n");
+        log_info("Sending a query message.");
         send(client_fd,&send_protocol,sizeof(send_protocol),0);
         send(client_fd,&query_buf,sizeof(query_buf),0);
         send(client_fd,file_name,strlen(file_name),0);
+        log_info("Send complete.");
 
         if(Receive(client_fd, &recv_protocol, sizeof(recv_protocol)) == 1)
         {
-            printf("Receive the reply message error.\n");
+            // printf("Receive the reply message error.\n");
+            log_error("Received an incorrect message.");
             CloseFile(file_fd);
             close(client_fd);
             return 1;
         }
         
         if (recv_protocol.head == 0x0001) {
-            printf("Success!\n");
+            log_info("Success!");
             break;
         }
 
@@ -121,7 +134,7 @@ int main(int argc, char* argv[])
             send_protocol.head = 0x0001;
             send_protocol.index = i;
             send_protocol.buf_length = read_byte_size + 16;
-            printf("Sending %d block. Block size is %d.\n",i,read_byte_size);
+            log_info("Sending %d block. Block size is %d.",i,read_byte_size);
             send(client_fd,&send_protocol,sizeof(send_protocol),0);
             send(client_fd,byte_md5,16,0);
             send(client_fd,data_buf,read_byte_size,0);

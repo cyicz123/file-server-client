@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-05 10:08:31
+ * @LastEditTime: 2022-08-11 19:46:05
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -21,7 +21,7 @@
 FILE* ReadFile(const char* file_path);
 
 /**
- * @description: 以wb模式打开文件
+ * @description: 以ab模式打开文件
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */

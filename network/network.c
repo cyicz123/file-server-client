@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:36
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-10 15:39:52
+ * @LastEditTime: 2022-08-11 17:13:37
  * @FilePath: /tcp-server/network/network.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -22,7 +22,7 @@ int Receive(int fd, void* buf, size_t size)
     size_t recv_byte = 0;
     for(size_t i =0; i < times; i++)
     {
-        recv_byte = recv_byte + recv(fd,buf,size,0);
+        recv_byte = recv_byte + recv(fd,buf,size - recv_byte,0);
         if(recv_byte == size)
             break;
     }

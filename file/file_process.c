@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-05 10:10:12
+ * @LastEditTime: 2022-08-11 20:18:58
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -20,6 +20,7 @@
 #endif
 
 #include "../str/strUtils.h"
+#include "../log/log.h"
 #include "file_process.h"
 #include <stdio.h>
 #include <sys/stat.h>
@@ -38,13 +39,13 @@ FILE* ReadFile(const char* file_path)
     off_t size=GetFileSize(file_path);
     if (size == 0) 
     {
-        printf("Can't open the file.\n");
+        log_error("Can't open the file.");
         return NULL;
     }
 
     if(size < 0 || size > MAX_FILE_SIZE)
     {
-        printf("The file is larger than 4GB.\n");
+        log_error("The file is larger than 4GB.");
         return NULL;
     }
     
@@ -52,7 +53,7 @@ FILE* ReadFile(const char* file_path)
     fd = fopen(file_path, "rb");
     if (fd == NULL)
     {
-        printf("Can't open the file.\n");
+        log_error("Can't open the file.");
         return NULL;
     }
 
@@ -61,17 +62,17 @@ FILE* ReadFile(const char* file_path)
 }
 
 /**
- * @description: 以wb模式打开文件
+ * @description: 以ab模式打开文件
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
 FILE* WriteFile(const char* file_path)
 {
     FILE* fd = NULL;
-    fd = fopen(file_path, "wb");
+    fd = fopen(file_path, "ab");
     if (fd == NULL)
     {
-        printf("Can't open the file.\n");
+        log_error("Can't open the file.");
         return NULL;
     }
     return fd;
@@ -86,7 +87,7 @@ int CloseFile(FILE* fd)
 {
     if(fclose(fd) != 0)
     {
-        printf("Can't close the file.");
+        log_error("Can't close the file.");
         return 1;
     }
     else
@@ -103,7 +104,7 @@ uint64_t GetFileSize(const char* file_path)
     struct stat64 buf;
     if (stat64(file_path,&buf)) 
     {
-        printf("Can't open the file.\n");
+        log_error("Can't open the file.");
         return 0;
     }
     return buf.st_size;
@@ -122,7 +123,7 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
     off_t offset = index*length;  
     if(fseeko(fd, offset, SEEK_SET) == -1)
     {
-        printf("Set the fd point failed.\n");
+        log_error("Set the fd point failed.");
         return 0;
     }
     uint32_t read_size=fread(buf, 1,length, fd);
@@ -141,22 +142,23 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  */
 int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, const uint32_t length)
 {
-    int index_s_length = GetIntDigit(index) + 1;
-    char* index_s = (char*)malloc(index_s_length * sizeof(char));
-    Uint32ToStr(index_s, index);
+    int s_index_length = GetIntDigit(index) + 1;
+    char* s_index = (char*)malloc(s_index_length * sizeof(char));
+    Uint32ToStr(s_index, s_index_length, index);
+    log_debug("s_index is %s",s_index);
     
-    size_t path_length = (strlen(prefix) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
+    size_t path_length = (strlen(prefix) + strlen(s_index) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
     char* path = (char*)malloc(path_length * sizeof(char));
 
-    snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, index_s);
-    free(index_s);
-
+    snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, s_index);
+    free(s_index);
+    log_debug("file_path is %s",path);
 
     FILE* file = fopen(path, "wb");
 
     if(file == NULL)
     {
-        printf("Can't write %s\n", path);
+        log_error("Can't write %s", path);
         free(path);
         return 1;
     }
@@ -165,7 +167,7 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
     count=fwrite(buf, 1, length, file);
     if(count != length)
     {
-        printf("Failed to write data to %s. Expected %u bytes of data to be written, but only %lu was written.\n", path, length, count);
+        log_error("Failed to write data to %s. Expected %u bytes of data to be written, but only %lu was written.", path, length, count);
         free(path);
         fclose(file);
         return 1;
@@ -197,7 +199,7 @@ int MergeFile(FILE* fd, const char* path)
         write_buf_size = fwrite((uint8_t*)buf, 1, read_buf_size, fd);
         if (write_buf_size != read_buf_size) 
         {
-            printf("The read and write operations are inconsistent.\n");
+            log_error("The read and write operations are inconsistent.");
             CloseFile(rd_fd);
             return 1;
         } 

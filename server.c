@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <hiredis/read.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <hiredis/hiredis.h>
@@ -12,6 +13,7 @@
 #include "md5/md5.h"
 #include "network/network.h"
 #include "str/strUtils.h"
+#include "log/log.h"
 
 // thread handler function
 void *pth_fun(void *arg){
@@ -25,10 +27,10 @@ void *pth_fun(void *arg){
 	char md5[33]={'\0'};
 	redisContext* conn = redisConnect("127.0.0.1", 6379);  
 	redisReply* reply;
-
+	log_info("[%u]: Connecting redis database.", info->tid);
     if(conn == NULL || conn->err)
 	{
-		printf("connection error:%s\n", conn->errstr);  
+		log_error("[%u]: connection error:%s", info->tid,  conn->errstr);  
 		close(info->fd);
 		redisFree(conn); 
 		pthread_exit(NULL);
@@ -39,7 +41,7 @@ void *pth_fun(void *arg){
 		if(trans_flag == 0)
 		{
 			// 服务端接收完全部数据收尾工作。合并所有文件，redis数据库标志位置为true
-
+			log_info("[%u]: Received all datas.Ready to merge file.", info->tid);
 			reply = redisCommand(conn, "hget %s block_num", md5);
 			uint32_t block_num = atol(reply->str);
 			freeReplyObject(reply);
@@ -54,7 +56,7 @@ void *pth_fun(void *arg){
 				// 合并小数据包
 				int index_s_length = GetIntDigit(index) + 1;
 				char* index_s = (char*)malloc(index_s_length * sizeof(char));
-				Uint32ToStr(index_s, index);
+				Uint32ToStr(index_s, index_s_length, index);
 				
 				size_t path_length = (strlen(md5) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
 				char* data_path = (char*)malloc(path_length * sizeof(char));
@@ -65,25 +67,34 @@ void *pth_fun(void *arg){
 				if(!ExistFile(data_path))
 				{
 					// 此序号数据包不存在，让客户端重传此包。并将合并文件序号置为此序号
+					log_error("[%u]: The %d index data doesn't exist.Want to resend it.", info->tid, index);
 					reply = redisCommand(conn, "hset %s index %d",md5,index);
 					freeReplyObject(reply);
 					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5,index);
 					freeReplyObject(reply);
 					// 数据包传输标志位重新置为1
 					trans_flag = 1;
-					CloseFile(write_fd);
 					free(data_path);
 					// 退出合并数据包循环
+					rp.index = index;
+					rp.head = 0x0000;
+					rp.size = 1;
+					log_info("[%u]: Send the resend message.");
+					send(info->fd,&rp,sizeof(rp),0);
 					break;
 				}
-				MergeFile(write_fd, data_path);
-				remove(data_path);
-				free(data_path);
+				else
+				{
+					MergeFile(write_fd, data_path);
+					remove(data_path);
+					free(data_path);
+				}
 			}
 			CloseFile(write_fd);
 			if(trans_flag == 0)
 			{
 				// 表示合并成功。进入校验文件部分。
+				log_info("[%u]: Merge successful! Check it md5 checksum.", info->tid);
 				FILE* rd_fd = ReadFile(md5);
 				uint8_t decrypt[16] = {0};
 				char s_decrypt[33] = {'\0'};
@@ -92,6 +103,7 @@ void *pth_fun(void *arg){
 				if (CompareByte(md5,s_decrypt,32) == 0) 
 				{
 					// 校验失败，需要重传所有数据包，重置BitMap为全0
+					log_error("[%u]: Inconsistent checksum. Need to resend all.", info->tid);
 					reply = redisCommand(conn, "del BitMap-%s", md5);
 					freeReplyObject(reply);
 					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5 , block_num - 1 );
@@ -108,6 +120,7 @@ void *pth_fun(void *arg){
 				else 
 				{
 					// 校验成功，发送确认报文
+					log_info("[%u]: Receive successful! Confirm it to client.", info->tid);
 					rp.head = 0x0001;
 					send(info->fd,&rp,sizeof(rp),0);
 					break;
@@ -116,6 +129,7 @@ void *pth_fun(void *arg){
 			else 
 			{
 				// 合并失败，重新循环，进入接收程序。
+				log_warn("[%u]: Merge failed.Receive them again.", info->tid);
 				continue;
 			}
 			
@@ -126,9 +140,12 @@ void *pth_fun(void *arg){
 		memset(&qb, 0, sizeof(qb));
 		memset(&rp, 0, sizeof(rp));
 
+		log_info("[%u]: Receiving messages.", info->tid);
 		// 接收报文头部
+		log_info("[%u]: Receiving message head.", info->tid);
 		if(Receive(info->fd, &sp, sizeof(sp)) == 1)
 		{
+            log_error("[%u]: Received an incorrect message.", info->tid) ;
 			close(info->fd);
 			redisFree(conn); 
 			pthread_exit(NULL);
@@ -136,9 +153,11 @@ void *pth_fun(void *arg){
 		if(sp.head == 0x0000)
 		{
 			// 查询报文
-			printf("Receive a query message.\n");
+			// printf("Receive a query message.\n");
+			log_info("[%u]: Receive a query message.", info->tid) ;
 			if(Receive(info->fd, &qb, sizeof(qb)) == 1)
 			{
+            	log_error("[%u]: Received an incorrect message.", info->tid) ;
 				close(info->fd);
 				redisFree(conn); 
 				pthread_exit(NULL);
@@ -147,6 +166,7 @@ void *pth_fun(void *arg){
 			char *file_name = (char*)malloc((buf_size+1)*sizeof(char));
 			if(Receive(info->fd, file_name, buf_size) == 1)
 			{
+            	log_error("[%u]: Received an incorrect message.", info->tid) ;
 				close(info->fd);
 				free(file_name);
 				redisFree(conn); 
@@ -160,12 +180,14 @@ void *pth_fun(void *arg){
 			if (reply->integer == 1) 
 			{	
 				// 该文件部分或全部已经传输过了。
+				log_info("[%u]: %s has existed.", info->tid,  file_name);
 				freeReplyObject(reply);
 				reply = redisCommand(conn, "hget %s file_flag", md5);
 				
 				if (CompareByte(reply->str, "true", 4) == 1)
 				{
 					// 标志位为true，说明要传输的文件已存在。设置传输数据标志位为0,跳出socket连接循环
+					log_info("[%u]: The file has been received.", info->tid) ;
 					free(file_name);
 					freeReplyObject(reply);
 					trans_flag = 0;
@@ -184,6 +206,7 @@ void *pth_fun(void *arg){
 				if (pos == -1)
 				{
 					// 说明报文全部收到，需要进入合并文件程序。传输数据标志为0，重新开始循环。
+					log_info("[%u]: The file's all datas have been received, but not been merged. Ready to merge them.", info->tid) ;
 					free(file_name);
 					trans_flag = 0;
 					continue;
@@ -208,11 +231,13 @@ void *pth_fun(void *arg){
 				rp.head = 0x0000;
 				rp.index = pos;
 				rp.size = window_size;
+				log_info("[%u]: Send the result message.", info->tid) ;
 				send(info->fd,&rp,sizeof(rp),0);
 			}
 			else
 			{
 				// 文件没有被传输过。
+				log_info("[%u]: A new file will be transmitted.", info->tid) ;
 				freeReplyObject(reply);
 				uint32_t block_num = GetBlockNum(qb.file_size, qb.block_size);
 				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d block_num %d file_flag %s index 0", md5, qb.file_size, file_name, qb.block_size, block_num, "false");  
@@ -222,6 +247,7 @@ void *pth_fun(void *arg){
 				rp.head = 0x0000;
 				rp.index = 0;
 				rp.size = block_num;
+				log_info("[%u]: Send the result.", info->tid) ;
 				send(info->fd,&rp,sizeof(rp),0);
 			}
 
@@ -231,10 +257,12 @@ void *pth_fun(void *arg){
 		else if(sp.head == 0x0001)
 		{
 			// 数据报文
-			printf("Receive a data buf.\n");
+			log_info("[%u]: Receive a data buf. Length is %d.", info->tid,  sp.buf_length);
 			uint8_t checksum[16] = {0}, decrypt[16]={0};
 			if(Receive(info->fd, checksum, 16) == 1)
 			{
+            	log_error("[%u]: Received an incorrect message.", info->tid) ;
+
 				close(info->fd);
 				redisFree(conn); 
 				pthread_exit(NULL);
@@ -242,6 +270,7 @@ void *pth_fun(void *arg){
 			data_buf = (uint8_t*)malloc(sp.buf_length-16);
 			if(Receive(info->fd, data_buf, sp.buf_length-16) == 1)
 			{
+            	log_error("[%u]: Received an incorrect message.", info->tid) ;
 				free(data_buf);
 				close(info->fd);
 				redisFree(conn); 
@@ -250,11 +279,11 @@ void *pth_fun(void *arg){
 			GetStrMD5(data_buf, sp.buf_length-16, decrypt);
 			if(CompareByte(checksum, decrypt, 16) == 0)
 			{
-				printf("Checksum is wrong.Drop %d data.\n",sp.index);
+				log_warn("[%u]: Checksum is wrong.Drop %d data.", info->tid, sp.index);
 				free(data_buf);
 				continue;
 			}
-			printf("Writing %d data.\n",sp.index);
+			log_info("[%u]: Writing the %d index data.", info->tid, sp.index);
 			WriteData(md5, sp.index, data_buf, sp.buf_length - 16);
 			reply = redisCommand(conn, "setbit BitMap-%s %d 1", md5, sp.index);
 			freeReplyObject(reply);
@@ -277,7 +306,7 @@ int main(int argc, char* argv[])
 {
 
 	int port_nu = atoi("8080"); //	user input port number
-
+	
 	// 1.create a socket
 	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if(socket_fd < 0){
