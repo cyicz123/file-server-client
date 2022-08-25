@@ -42,11 +42,11 @@ void *pth_fun(void *arg){
 		{
 			// 服务端接收完全部数据收尾工作。合并所有文件，redis数据库标志位置为true
 			log_info("[%u]: Received all datas.Ready to merge file.", info->tid);
-			reply = redisCommand(conn, "hget %s block_num", md5);
+			reply = redisCommand(conn, "hget File-%s block_num", md5);
 			uint32_t block_num = atol(reply->str);
 			freeReplyObject(reply);
 
-			reply = redisCommand(conn, "hget %s index", md5);
+			reply = redisCommand(conn, "hget File-%s index", md5);
 			size_t index = atol(reply->str);
 			freeReplyObject(reply);
 
@@ -68,7 +68,7 @@ void *pth_fun(void *arg){
 				{
 					// 此序号数据包不存在，让客户端重传此包。并将合并文件序号置为此序号
 					log_error("[%u]: The %d index data doesn't exist.Want to resend it.", info->tid, index);
-					reply = redisCommand(conn, "hset %s index %d",md5,index);
+					reply = redisCommand(conn, "hset File-%s index %d",md5,index);
 					freeReplyObject(reply);
 					reply = redisCommand(conn, "setbit BitMap-%s %d 0",md5,index);
 					freeReplyObject(reply);
@@ -153,7 +153,7 @@ void *pth_fun(void *arg){
 		if(sp.head == 0x0000)
 		{
 			// 查询报文
-			// printf("Receive a query message.\n");
+			// log_info("Receive a query message.");
 			log_info("[%u]: Receive a query message.", info->tid) ;
 			if(Receive(info->fd, &qb, sizeof(qb)) == 1)
 			{
@@ -176,13 +176,13 @@ void *pth_fun(void *arg){
 		
 			Byte2Str(qb.checksum, 16, md5);
 			md5[32] = '\0';
-			reply = redisCommand(conn, "exists %s", md5);
+			reply = redisCommand(conn, "exists File-%s", md5);
 			if (reply->integer == 1) 
 			{	
 				// 该文件部分或全部已经传输过了。
 				log_info("[%u]: %s has existed.", info->tid,  file_name);
 				freeReplyObject(reply);
-				reply = redisCommand(conn, "hget %s file_flag", md5);
+				reply = redisCommand(conn, "hget File-%s file_flag", md5);
 				
 				if (CompareByte(reply->str, "true", 4) == 1)
 				{
@@ -196,7 +196,7 @@ void *pth_fun(void *arg){
 					break;
 				}
 				freeReplyObject(reply);
-				reply = redisCommand(conn, "hget %s block_num", md5);
+				reply = redisCommand(conn, "hget File-%s block_num", md5);
 				uint32_t block_num = atol(reply->str);
 				freeReplyObject(reply);
 				reply = redisCommand(conn, "bitpos BitMap-%s 0 0 %d bit", md5, block_num-1);
@@ -240,7 +240,7 @@ void *pth_fun(void *arg){
 				log_info("[%u]: A new file will be transmitted.", info->tid) ;
 				freeReplyObject(reply);
 				uint32_t block_num = GetBlockNum(qb.file_size, qb.block_size);
-				reply = redisCommand(conn, "hset %s file_size %lld file_name %s block_size %d block_num %d file_flag %s index 0", md5, qb.file_size, file_name, qb.block_size, block_num, "false");  
+				reply = redisCommand(conn, "hset File-%s file_size %lld file_name %s block_size %d block_num %d file_flag %s index 0", md5, qb.file_size, file_name, qb.block_size, block_num, "false");  
     			freeReplyObject(reply);  
 				reply = redisCommand(conn, "setbit BitMap-%s %d 0", md5, block_num);
 				freeReplyObject(reply);
@@ -293,7 +293,7 @@ void *pth_fun(void *arg){
 	}
 	
 	// 说明已经成功收到文件，设置文件接收标志位为true
-	reply = redisCommand(conn, "hset %s file_flag true",md5);
+	reply = redisCommand(conn, "hset File-%s file_flag true",md5);
 	freeReplyObject(reply);
 
 	close(info->fd);
@@ -310,7 +310,7 @@ int main(int argc, char* argv[])
 	// 1.create a socket
 	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if(socket_fd < 0){
-		printf("err: create socket fail! caused by %s\n", strerror(errno));
+		log_error("err: create socket fail! caused by %s", strerror(errno));
 	}
 
 	// 2.bind ip and port
@@ -323,18 +323,18 @@ int main(int argc, char* argv[])
 
 	int bind_ret = bind(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
 	if(bind_ret < 0){
-		printf("err: bind fail! caused by %s\n", strerror(errno));
+		log_error("err: bind fail! caused by %s", strerror(errno));
 	}
 
 	// 3.listen
 	int listen_ret = listen(socket_fd, 128);
 	if(listen_ret < 0){
-		printf("err: listen fail! caused by %s", strerror(errno));
+		log_error("err: listen fail! caused by %s", strerror(errno));
 	}
 
-	printf("the server started...\n");
-	printf("listen on port:%d\n", port_nu);
-	printf("waiting for client...\n");
+	log_info("the server started...");
+	log_info("listen on port:%d", port_nu);
+	log_info("waiting for client...");
 
 
 	// 4.wait and connect, pthread_creat 
