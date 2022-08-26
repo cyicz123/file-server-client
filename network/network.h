@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-04 19:45:54
+ * @LastEditTime: 2022-08-25 16:03:24
  * @FilePath: /tcp-server/network/network.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -16,35 +16,27 @@
 #include <pthread.h> 
 #include <sys/socket.h>
 
-typedef struct SockInfo{
-	int fd;
-	struct sockaddr_in addr;
-	pthread_t tid;
-}SockInfo;
+// typedef struct SockInfo{
+// 	int fd;
+// 	struct sockaddr_in addr;
+// 	pthread_t tid;
+// }SockInfo;
 
 
-typedef struct SendProtocol
+typedef struct ProtocolBuf
 {
     uint16_t head;
-    uint32_t buf_length;
-    uint32_t index;
-}SendProtocol;
-
-typedef struct QueryBuf
-{
-    uint64_t file_size;
-    uint32_t block_size;
-    uint8_t checksum[16];
-}QueryBuf;
+    uint64_t length;
+}ProtocolBuf;
 
 
 
-typedef struct RecvProtocol
-{
-    uint16_t head;
-    uint32_t index;
-    uint32_t size;
-}RecvProtocol;
+/**
+ * @description: 启动服务器，进入等待连接状态
+ * @param {uint16_t} port 端口号
+ * @return {int} socket_fd 
+ */
+int PrepareServer(struct sockaddr_in* server_addr, pthread_mutex_t* mutex);
 
 /**
  * @description: fd收取size字节的数据
