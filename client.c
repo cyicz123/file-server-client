@@ -2,11 +2,13 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-26 10:45:59
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 11:11:15
+ * @LastEditTime: 2022-08-26 15:40:24
  * @FilePath: /tcp-server/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 // demo: socket tcp client
+#include "log/log.h"
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,11 +34,16 @@ int main(int argc, char* argv[])
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
-	//server_addr.sin_addr.s_addr = htonl();
-	inet_pton(AF_INET, "localhost", &server_addr.sin_addr.s_addr);
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	// inet_pton(AF_INET, "localhost", &server_addr.sin_addr.s_addr);
 
 	// 3.connect
 	int ret = connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+	if (ret < 0) {
+		log_error("Connect the server failed");
+		close(client_fd);
+		exit(0);
+	}
 
 	// 4.communication
 	while(1){

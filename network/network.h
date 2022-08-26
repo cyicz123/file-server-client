@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-25 16:03:24
+ * @LastEditTime: 2022-08-26 19:15:49
  * @FilePath: /tcp-server/network/network.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -23,12 +23,15 @@
 // }SockInfo;
 
 
-typedef struct ProtocolBuf
+typedef struct RequestBuf
 {
-    uint16_t head;
-    uint64_t length;
-}ProtocolBuf;
+    uint16_t type;
+    uint16_t cmd;
+}RequestBuf;
 
+typedef struct ReplyBuf{
+    uint16_t status_code;
+}ReplyBuf;
 
 
 /**

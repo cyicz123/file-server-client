@@ -2,17 +2,12 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-11 20:18:58
+ * @LastEditTime: 2022-08-26 20:02:30
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
 #ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #endif
 
 #ifndef _FILE_OFFSET_BITS
@@ -22,9 +17,14 @@
 #include "../str/strUtils.h"
 #include "../log/log.h"
 #include "file_process.h"
+
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 #define MAX_FILE_SIZE (off_t)(4294967295) //最大4GB
 #define MERGE_FILE_READ_BUF_SIZE 1024
@@ -233,4 +233,21 @@ uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size)
     else
         block_num = file_size / block_size + 1;
     return block_num;
+}
+
+int CreateFile(const char* path){
+    int ret =-1;
+    if (ExistFile(path)) {
+        return 1;
+    }
+    else {
+        ret = mkdir(path, 0777);
+    }
+    // 判断创建目录是否成功
+    if (0 == ret) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }

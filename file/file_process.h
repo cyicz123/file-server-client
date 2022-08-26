@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-11 19:46:05
+ * @LastEditTime: 2022-08-26 19:57:15
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -83,4 +83,11 @@ int ExistFile(const char* path);
  * @return {uint32_t} block_num 分割块总数
  */
 uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size);
+
+/**
+ * @description: 创建一个同级下的目录，如果目录已存在则不创建
+ * @param {char*} path 文件路径
+ * @return {*} 0 失败 1 成功
+ */
+int CreateFile(const char* path);
 #endif

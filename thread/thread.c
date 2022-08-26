@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 14:09:47
+ * @LastEditTime: 2022-08-26 20:10:37
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,22 +10,25 @@
 #include "../config.h"
 #include "../network/network.h"
 #include "../log/log.h"
+#include "../file/file_process.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 pthread_mutex_t _server_mutex;
 
 
-void *StartServer(){
+void StartServer(){
     struct sockaddr_in server_addr;
     int socket_fd = -1;
     int available_thread_id = -1;
 	socklen_t len = sizeof(struct sockaddr_in);
+    int storage_ret = -1;
 	thread_arg_server arg[THREAD_SERVER_MAXIUM_THREADS]; 
     // 初始化 arg数组
     memset(&arg, 0, sizeof(thread_arg_server) * THREAD_SERVER_MAXIUM_THREADS);
@@ -34,10 +37,15 @@ void *StartServer(){
         arg[i].tid = -1;
     }
 
+    storage_ret = CreateFile(THREAD_SERVER_STORAGE_FILE);
+    if (1 == storage_ret) {
+        log_error("Set the storage file file. Please check the path: %s", THREAD_SERVER_STORAGE_FILE);
+        exit(1);
+    }
 
     socket_fd = PrepareServer(&server_addr, &_server_mutex);
     if (socket_fd < 0) {
-        return NULL;
+        exit(1);
     }
 
 	
@@ -60,7 +68,7 @@ void *StartServer(){
 
 	close(socket_fd);
     
-    return NULL;
+    exit(0);
 }
 
 
