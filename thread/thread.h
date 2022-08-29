@@ -2,18 +2,21 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:43
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 19:18:03
+ * @LastEditTime: 2022-08-29 14:42:13
  * @FilePath: /tcp-server/thread/thread.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #ifndef THREAD_H
 #define THREAD_H
 
+#include "../network/network.h"
+
+#include <stdint.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
 typedef struct thread_arg_server{
-    struct sockaddr_in server_addr;
+    struct sockaddr_in addr;
     int fd;
     pthread_t tid;
 }thread_arg_server;
@@ -31,4 +34,36 @@ void StartServer();
  */
 void *HandleClient(void* arg);
 
+/**
+ * @description: 处理Get报文
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handleGet(thread_arg_server* arg, RequestBuf* request_buf);
+
+/**
+ * @description: 处理Post报文
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handlePost(thread_arg_server* arg, RequestBuf* request_buf);
+
+/**
+ * @description: 处理Delete报文
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handleDelete(thread_arg_server* arg, RequestBuf* request_buf);
+
+/**
+ * @description: 处理Query报文
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf);
+
+/**
+ * @description: 处理Command报文
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf);
+
+
+void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code);
 #endif

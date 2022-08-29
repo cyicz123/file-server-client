@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:36
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 14:09:33
+ * @LastEditTime: 2022-08-29 14:24:03
  * @FilePath: /tcp-server/network/network.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,6 +10,7 @@
 #include "network.h"
 #include "../log/log.h"
 
+#include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -70,15 +71,25 @@ int PrepareServer(struct sockaddr_in* server_addr, pthread_mutex_t* mutex){
  * @param {int} fd 套接字fd
  * @param {uint8_t*} buf 存放数据的数组
  * @param {size_t} size 字节长度
- * @return {int} 0 成功 1 失败
+ * @return {size_t} 0 成功 -1 连接断开 大于零表示断开连接导致未收到想要收到的字节
  */
-int Receive(int fd, void* buf, size_t size)
+size_t Receive(int fd, void* buf, size_t size)
 {
-    int times = 10 ; 
+    int max_times = 10; 
     size_t recv_byte = 0;
-    for(size_t i =0; i < times; i++)
+    size_t recv_once = 0;
+    for(size_t i =0; i < max_times; i++)
     {
-        recv_byte = recv_byte + recv(fd,buf,size - recv_byte,0);
+        recv_once = recv(fd,buf,size - recv_byte,0);
+        if (-1 == recv_once) {
+            log_error("Read fail! caused by %s.", strerror(errno));
+            return -1;
+        }
+        else if (0 == recv_once) {
+            log_warn("Disconnect the connection.");
+            return -1;
+        }
+        recv_byte = recv_byte + recv_once;
         if(recv_byte == size)
             break;
     }
@@ -88,7 +99,7 @@ int Receive(int fd, void* buf, size_t size)
     }
     else 
     {
-        printf("Expect to receive %ld bytes, only receive %ld bytes.\n",size,recv_byte);
-        return 1;
+        log_warn("Expect to receive %ld bytes, only receive %ld bytes.", size, recv_byte);
+        return recv_byte;
     }
 }

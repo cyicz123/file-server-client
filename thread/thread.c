@@ -2,13 +2,12 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 20:10:37
+ * @LastEditTime: 2022-08-29 14:58:40
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 #include "thread.h"
 #include "../config.h"
-#include "../network/network.h"
 #include "../log/log.h"
 #include "../file/file_process.h"
 
@@ -19,6 +18,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
+
+/**
+ * @description: 通过提取百位的数字来得到控制命令
+ * @param {uint16_t}
+ * @return {*} 
+ */
+#define getMode(x) (x / 100 % 10)
+
+#define TYPE_GET 1
+#define TYPE_POST 2
+#define TYPE_DELETE 3
+#define TYPE_QUERY 4
+#define TYPE_COMMAND 5
 
 pthread_mutex_t _server_mutex;
 
@@ -34,11 +47,11 @@ void StartServer(){
     memset(&arg, 0, sizeof(thread_arg_server) * THREAD_SERVER_MAXIUM_THREADS);
     for (size_t i = 0; i < THREAD_SERVER_MAXIUM_THREADS; i++) {
         arg[i].fd = -1;
-        arg[i].tid = -1;
+        arg[i].tid = 0;
     }
 
     storage_ret = CreateFile(THREAD_SERVER_STORAGE_FILE);
-    if (1 == storage_ret) {
+    if (0 == storage_ret) {
         log_error("Set the storage file file. Please check the path: %s", THREAD_SERVER_STORAGE_FILE);
         exit(1);
     }
@@ -56,7 +69,7 @@ void StartServer(){
         }
 		if(available_thread_id == 256) break;
 
-		arg[available_thread_id].fd = accept(socket_fd, (struct sockaddr*)&arg[available_thread_id].server_addr, &len);
+		arg[available_thread_id].fd = accept(socket_fd, (struct sockaddr*)&arg[available_thread_id].addr, &len);
 
 		// 开启处理客户端的分离线程
 		pthread_create(&arg[available_thread_id].tid, NULL, HandleClient, &arg[available_thread_id]);
@@ -73,32 +86,93 @@ void StartServer(){
 
 
 void *HandleClient(void* arg){
+    //声明
     thread_arg_server* thread_arg = (thread_arg_server*)(arg);
+    RequestBuf request_buf;
+    int ret = -1;
+    int request_ret = -1;
 
-    char buff[1024]; //32个字节表示协议长度，16个字节装md5校验码，剩下512k装数据。
-    memset(buff, 0, sizeof(char) * 1024);
+    //初始化
+    memset(&request_buf, 0, sizeof(RequestBuf));
 
-    // print IP and port of client
-    log_info("accept client IP:%s, port:%d", inet_ntoa(thread_arg->server_addr.sin_addr), ntohs(thread_arg->server_addr.sin_port));
+    while (true) {
+        ret = Receive(thread_arg->fd, &request_buf, sizeof(RequestBuf));
+        if (-1 == ret ) {
+            log_warn("Connect interrupt.");
+            break;
+        }
+        else if (0 != ret) {
+            log_info("[IP: %s, Port: %d] The client is disconnected.", inet_ntoa(thread_arg->addr.sin_addr), ntohs(thread_arg->addr.sin_port));
+            break;
+        }
 
-    // transfer
-    while(1){
-            memset(buff, 0, sizeof(buff));
-            int read_ret = read(thread_arg->fd, buff, 1024);
-            if(read_ret == -1 ){
-                    log_error("err: read fail!");
-                    thread_arg->fd = -1;
-                    pthread_exit(NULL);
-            }else if(read_ret == 0){
-                    log_error("The client has closed!");
-                    close(thread_arg->fd);
-                    break;
-            }
+        switch (getMode(request_buf.type)) {
+            case TYPE_GET:
+            log_info("Handing a GET request.");
+            request_ret = handleGet(thread_arg, &request_buf);
+            break;
 
-            log_info("recv data:%s", buff);
+            case TYPE_POST:
+            log_info("Handing a POST request.");
+            request_ret = handlePost(thread_arg, &request_buf);
+            break;
+            
+            case TYPE_DELETE:
+            log_info("Handing a DELETE request.");
+            request_ret = handleDelete(thread_arg, &request_buf);
+            break;
+            
+            case TYPE_QUERY:
+            log_info("Handing a QUERY request.");
+            request_ret = handleQuery(thread_arg, &request_buf);
+            break;
 
-            write(thread_arg->fd, buff, read_ret); // send buff to client
+            case TYPE_COMMAND:
+            log_info("Handing a COMMAND request.");
+            request_ret = handleCommand(thread_arg, &request_buf);
+            break;
+
+            default:
+            log_info("Unknow request.");
+            request_ret = 404;
+        }
+        
+        if (0 != request_ret) {
+            handleError(thread_arg, &request_buf, request_ret);
+        }
     }
+    // close 一定要放在fd = -1 前面，因为重置连接没加锁，如果放在下面可能遇到先释放线程后，被另一个线程启用，最后fd没关闭。
+    close(thread_arg->fd);     
     thread_arg->fd = -1;
+    thread_arg->tid = 0;
     return NULL;
+}
+
+uint16_t handleGet(thread_arg_server* arg, RequestBuf* request_buf){
+    return 0;
+}
+
+
+uint16_t handlePost(thread_arg_server* arg, RequestBuf* request_buf){
+    return 0;
+}
+
+
+uint16_t handleDelete(thread_arg_server* arg, RequestBuf* request_buf){
+    return 0;
+}
+
+
+uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf){
+    return 0;
+}
+
+
+uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf){
+    return 0;
+}
+
+
+void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code){
+    return;
 }
