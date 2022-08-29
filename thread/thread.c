@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 17:18:57
+ * @LastEditTime: 2022-08-29 17:31:54
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -35,6 +35,10 @@
 #define TYPE_COMMAND 5
 
 #define BAD_REQUEST 400
+#define NOT_FOUND 404
+
+#define QUERY_LIST 0 //默认路径查询
+#define QUERY_LIST_WITH_PATH 1  //带有路径的查询
 
 pthread_mutex_t _server_mutex;
 
@@ -170,6 +174,11 @@ uint16_t handleDelete(thread_arg_server* arg, RequestBuf* request_buf){
 
 
 uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf){
+    char* prefix = THREAD_SERVER_STORAGE_FILE;
+
+    if(QUERY_LIST == request_buf->cmd){
+        
+    }
     return 0;
 }
 
