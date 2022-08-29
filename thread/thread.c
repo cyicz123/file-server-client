@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 14:58:40
+ * @LastEditTime: 2022-08-29 17:18:57
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -32,6 +33,8 @@
 #define TYPE_DELETE 3
 #define TYPE_QUERY 4
 #define TYPE_COMMAND 5
+
+#define BAD_REQUEST 400
 
 pthread_mutex_t _server_mutex;
 
@@ -93,6 +96,9 @@ void *HandleClient(void* arg){
     int request_ret = -1;
 
     //初始化
+    if (NULL == thread_arg) {
+       return NULL; 
+    }
     memset(&request_buf, 0, sizeof(RequestBuf));
 
     while (true) {
@@ -174,5 +180,17 @@ uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf){
 
 
 void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code){
+    size_t send_ret = -1;
+    ReplyBuf reply_buf;
+    
+    if (error_code < 0) {
+        reply_buf.status_code = BAD_REQUEST;
+    }
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = error_code;
+    send_ret = Send(arg->fd, &reply_buf, sizeof(reply_buf));
+    if (0 != send_ret) {
+        log_error("Send buf failed. Caused by %s.", strerror(errno));
+    }
     return;
 }

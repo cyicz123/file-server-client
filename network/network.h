@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 13:51:35
+ * @LastEditTime: 2022-08-29 16:35:02
  * @FilePath: /tcp-server/network/network.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -47,8 +47,17 @@ int PrepareServer(struct sockaddr_in* server_addr, pthread_mutex_t* mutex);
  * @param {int} fd 套接字fd
  * @param {uint8_t*} buf 存放数据的数组
  * @param {size_t} size 字节长度
- * @return {size_t} 0 成功 -1 未知错误失败 大于零表示断开连接导致未收到想要收到的字节
+ * @return {size_t} 0 成功 -1 连接断开 大于零表示断开连接导致未收到想要收到的字节
  */
 size_t Receive(int fd, void* buf, size_t size);
+
+/**
+ * @description: 发送size字节的数据
+ * @param {int} fd 套接字fd
+ * @param {void*} buf 存放数据的数组
+ * @param {size_t} size 字节长度
+ * @return {size_t} 0 成功 -1 连接断开 大于零表示断开连接导致未收到想要收到的字节
+ */
+size_t Send(int fd, void* buf, size_t size);
 
 #endif

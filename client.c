@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-26 10:45:59
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 14:18:46
+ * @LastEditTime: 2022-08-29 17:18:32
  * @FilePath: /tcp-server/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -46,20 +46,24 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 
-	RequestBuf qb;
+	RequestBuf request_buf;
+	ReplyBuf reply_buf;
 	// 4.communication
 	while(1){
 		
 		// // send data
 		// char buf[1024];
 		printf("Request type: ");
-		scanf("%hu", &(qb.type));
-		printf("\n");
+		scanf("%hu", &(request_buf.type));
 		printf("Request command: ");
-		scanf("%hu", &qb.cmd);
-		printf("\n");
+		scanf("%hu", &request_buf.cmd);
 		// fgets(buf, sizeof(buf), stdin);
-		write(client_fd, &qb, sizeof(qb));
+		send(client_fd, &request_buf, sizeof(request_buf), 0);
+		// Send(client_fd, &request_buf, sizeof(request_buf));
+		Receive(client_fd, &reply_buf, sizeof(reply_buf));
+
+		printf("Received type: %hu\n", reply_buf.type);
+		printf("Received status: %hu\n", reply_buf.status_code);
 
 		// // wait and receive data
 		// int read_ret = read(client_fd, buf, sizeof(buf));

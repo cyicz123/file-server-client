@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:36
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 14:24:03
+ * @LastEditTime: 2022-08-29 17:14:30
  * @FilePath: /tcp-server/network/network.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -80,7 +80,8 @@ size_t Receive(int fd, void* buf, size_t size)
     size_t recv_once = 0;
     for(size_t i =0; i < max_times; i++)
     {
-        recv_once = recv(fd,buf,size - recv_byte,0);
+        // 接收缓冲区指针需要偏移已接收字节数，接收字节数为总字节数-已接收字节数
+        recv_once = recv(fd, buf + recv_byte, size - recv_byte,0);
         if (-1 == recv_once) {
             log_error("Read fail! caused by %s.", strerror(errno));
             return -1;
@@ -101,5 +102,36 @@ size_t Receive(int fd, void* buf, size_t size)
     {
         log_warn("Expect to receive %ld bytes, only receive %ld bytes.", size, recv_byte);
         return recv_byte;
+    }
+}
+
+size_t Send(int fd, void* buf, size_t size){
+    int max_times = 10; 
+    size_t send_byte = 0;
+    size_t send_once = 0;
+    for(size_t i =0; i < max_times; i++)
+    {
+        // 发送缓冲区指针需要偏移已发送字节数，发送字节数为总字节数-已发送字节数
+        send_once = send(fd, buf + send_byte, size - send_byte, 0);
+        if (-1 == send_once) {
+            log_error("Read fail! caused by %s.", strerror(errno));
+            return -1;
+        }
+        else if (0 == send_once) {
+            log_warn("Disconnect the connection.");
+            return -1;
+        }
+        send_byte = send_byte + send_once;
+        if(send_byte == size)
+            break;
+    }
+    if (send_byte == size) 
+    {
+        return 0;
+    }
+    else 
+    {
+        log_warn("Expect to send %ld bytes, only send %ld bytes.", size, send_byte);
+        return send_byte;
     }
 }
