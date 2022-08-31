@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-12 09:58:02
+ * @LastEditTime: 2022-08-30 15:17:29
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -10,8 +10,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
 #include "strUtils.h"
+#include "../log/log.h"
 
 
 /**
@@ -76,4 +79,31 @@ int CompareByte(const void* s1, const void* s2, int size)
             return 0;
     }
     return 1;
+}
+
+int Str2Addr(const char* str_addr, struct sockaddr_in* addr){
+	const char* str_port = strchr(str_addr, ':'); // str_port结果为":port"
+	int convert_ret = -1;
+	
+	if (NULL != str_port && str_port > str_addr) { // str_port非空且str_port在str_addr右边，则可认为str_port有效
+		int port = atoi(str_port + 1);
+		if(port < 1 || port > 65535){
+			log_error("The address %s port is illegal!", str_addr);
+			return 1;
+		}
+		addr->sin_port = htons(port);
+
+		char str_ip[255] = {'\0'};
+		memcpy(str_ip, str_addr, str_port-str_addr);
+		convert_ret = inet_aton(str_ip, &addr->sin_addr);
+		if (1 != convert_ret) {
+			log_error("The address %s ip is illegal!", str_addr);
+			return 1;
+		}
+		return 0;
+	}
+	else {
+		log_error("The address %s is illegal!", str_addr);
+		return 1;
+	}
 }

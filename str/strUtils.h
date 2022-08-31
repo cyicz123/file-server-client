@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-12 09:52:39
+ * @LastEditTime: 2022-08-30 15:16:45
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -10,6 +10,7 @@
 #define STR_UTILS_H
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 /**
  * @description: 获取非负整数的位数
@@ -44,4 +45,12 @@ int Byte2Str(const uint8_t* buf, int length, char* result);
  * @return {int} 0 不相同 1 相同
  */
 int CompareByte(const void* s1, const void* s2, int size);
+
+/**
+ * @description: 将字符串IP:Port转换为sockaddr_in类型
+ * @param {char*} str_addr
+ * @param {sockaddr_in*} addr
+ * @return {int} 0 成功 1 失败
+ */
+int Str2Addr(const char* str_addr, struct sockaddr_in* addr);
 #endif

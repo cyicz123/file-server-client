@@ -1,0 +1,6 @@
+aux_source_directory(. clientLib_LIB_SRC)
+add_library(clientLib ${clientLib_LIB_SRC})
+target_link_libraries(clientLib log)
+target_link_libraries(clientLib net)
+target_link_libraries(clientLib str)
+target_link_libraries(clientLib file_process)

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 20:02:30
+ * @LastEditTime: 2022-08-31 14:48:39
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -25,9 +25,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <dirent.h>
 
 #define MAX_FILE_SIZE (off_t)(4294967295) //最大4GB
 #define MERGE_FILE_READ_BUF_SIZE 1024
+
 
 /**
  * @description: 以rb模式打开文件，同时对文件进行检查是否大于4GB。
@@ -250,4 +252,55 @@ int CreateFile(const char* path){
     else {
         return 0;
     }
+}
+
+
+int ShowDirFiles(const char* path, char* files[]){
+    char** all_files;
+    struct dirent **entry_list = NULL;
+    struct dirent *entry = NULL;
+    int count = 0;
+    int file_num = 0;
+    int ret = -1;
+
+    ret = ExistFile(path);
+    if (0 == ret) {
+        return -1;
+    }
+
+    count = scandir(path, &entry_list, 0, alphasort);
+    if (count < 0) {
+        return -1;
+    }
+    all_files = (char**)malloc(sizeof(char*) * count); 
+    for (size_t i=0; i<count; i++) {
+        entry = entry_list[i];
+        if (DT_REG == entry->d_type) {
+            all_files[file_num] = (char*)malloc(MAX_FILE_NAME_LENGTH);
+            memset(all_files[file_num], '\0', MAX_FILE_NAME_LENGTH);
+            strncpy(all_files[file_num], entry->d_name, MAX_FILE_NAME_LENGTH); 
+            file_num++;
+        }
+        free(entry);
+    }
+    free(entry_list);
+    
+    // files = (char**)malloc(sizeof(char*) * file_num);
+    for (size_t i=0; i<file_num; i++) {
+        files[i] = (char*)malloc(MAX_FILE_NAME_LENGTH);
+        memset(files[i], '\0', MAX_FILE_NAME_LENGTH);
+        strncpy(files[i], all_files[i], MAX_FILE_NAME_LENGTH);
+        free(all_files[i]);
+    }
+    free(all_files);
+    return file_num;
+}
+
+
+int FreeFiles(char** files, int num){
+    for (size_t i=0; i<num; i++) {
+        free(files[i]);
+    }
+    free(files);
+    return 0;
 }

@@ -1,0 +1,6 @@
+aux_source_directory(. serverLib_LIB_SRC)
+link_libraries(pthread)
+add_library(serverLib ${serverLib_LIB_SRC})
+target_link_libraries(serverLib log)
+target_link_libraries(serverLib net)
+target_link_libraries(serverLib file_process)

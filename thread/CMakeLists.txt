@@ -1,6 +1,0 @@
-aux_source_directory(. THREAD_LIB_SRC)
-link_libraries(pthread)
-add_library(thread ${THREAD_LIB_SRC})
-target_link_libraries(thread log)
-target_link_libraries(thread net)
-target_link_libraries(thread file_process)

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-26 19:57:15
+ * @LastEditTime: 2022-08-30 20:43:27
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+
+#define MAX_FILE_NAME_LENGTH 255
 
 /**
  * @description: 以rb模式打开文件，同时对文件进行检查是否大于4GB。
@@ -90,4 +92,22 @@ uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size);
  * @return {*} 0 失败 1 成功
  */
 int CreateFile(const char* path);
+
+/**
+ * @description: 显示目录内文件名，存放进files二级数组内
+ * @param {char*} path 目录路径
+ * @param {char*} files 存放文件名的字符串数组，需要调用者释放
+ * @return {int} 文件数目 -1表示路径不存在或者错误
+ */
+int ShowDirFiles(const char* path, char* files[]);
+
+/**
+ * @description: 释放ShowDirFiles中产生的files二级动态数组
+ * @param {char**} files
+ * @param {int} num
+ * @return {int} 0 成功 1 失败
+ */
+int FreeFiles(char** files, int num);
+
+
 #endif

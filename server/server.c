@@ -2,11 +2,11 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 17:31:54
+ * @LastEditTime: 2022-08-31 15:31:03
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
-#include "thread.h"
+#include "server.h"
 #include "../config.h"
 #include "../log/log.h"
 #include "../file/file_process.h"
@@ -21,24 +21,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-/**
- * @description: 通过提取百位的数字来得到控制命令
- * @param {uint16_t}
- * @return {*} 
- */
-#define getMode(x) (x / 100 % 10)
-
-#define TYPE_GET 1
-#define TYPE_POST 2
-#define TYPE_DELETE 3
-#define TYPE_QUERY 4
-#define TYPE_COMMAND 5
-
-#define BAD_REQUEST 400
-#define NOT_FOUND 404
-
-#define QUERY_LIST 0 //默认路径查询
-#define QUERY_LIST_WITH_PATH 1  //带有路径的查询
 
 pthread_mutex_t _server_mutex;
 
@@ -108,7 +90,7 @@ void *HandleClient(void* arg){
     while (true) {
         ret = Receive(thread_arg->fd, &request_buf, sizeof(RequestBuf));
         if (-1 == ret ) {
-            log_warn("Connect interrupt.");
+            log_info("Connect interrupt.");
             break;
         }
         else if (0 != ret) {
@@ -174,11 +156,77 @@ uint16_t handleDelete(thread_arg_server* arg, RequestBuf* request_buf){
 
 
 uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf){
-    char* prefix = THREAD_SERVER_STORAGE_FILE;
+    int send_ret = -1;
+    int recv_ret = -1;
+    char **files;
+    int file_num = 0;
+    uint32_t net_file_num = 0;
+    char* prefix = NULL;
+    ReplyBuf reply_buf;
 
-    if(QUERY_LIST == request_buf->cmd){
-        
+    // 初始化files
+    files = (char**)malloc(sizeof(char*) * 255);
+
+    // 设置prefix
+    if(QUERY_MODE_LIST_WITH_PATH == request_buf->cmd){
+        log_info("Query the files in the specified directory.");
+        prefix = (char*)malloc(MAX_FILE_NAME_LENGTH);
+        memset(prefix, '\0', MAX_FILE_NAME_LENGTH);
+        memcpy(prefix, THREAD_SERVER_STORAGE_FILE, strlen(THREAD_SERVER_STORAGE_FILE));
+        recv_ret = ReadLine(arg->fd, prefix, MAX_FILE_NAME_LENGTH);
+        if (recv_ret < 0) {
+            return INTERNAL_SERVER_ERROR;
+        }
     }
+    
+    if (NULL == prefix) {
+        prefix = THREAD_SERVER_STORAGE_FILE;
+    }
+
+    file_num = ShowDirFiles(prefix, files);
+    if (file_num < 0) {
+        if (NULL != prefix) {
+            free(prefix);
+        }
+        return NOT_FOUND;
+    }
+    // 到了此步，说明查询成功，需要回复相应成功报文
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (send_ret < 0) {
+        FreeFiles(files, file_num);
+        if (NULL != prefix) {
+            free(prefix);
+        }
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 发送文件数量
+    net_file_num = htonl(file_num);
+    send_ret = Send(arg->fd, &net_file_num, sizeof(uint32_t));
+    if (send_ret < 0) {
+        FreeFiles(files, file_num);
+        if (NULL != prefix) {
+            free(prefix);
+        }
+        log_error("Send file numbers error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    //发送文件
+    for (size_t i=0; i<file_num; i++) {
+        send_ret = WriteLine(arg->fd, files[i], MAX_FILE_NAME_LENGTH);
+        if (send_ret < 0) {
+            FreeFiles(files, file_num);
+            if (NULL != prefix) {
+                free(prefix);
+            }
+            log_error("Send file name error.");
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    log_info("Send files completely.");
+    FreeFiles(files, file_num);
     return 0;
 }
 
