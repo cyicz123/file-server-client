@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-31 14:48:39
+ * @LastEditTime: 2022-09-02 15:48:31
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -26,8 +26,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <math.h>
+#include <errno.h>
 
-#define MAX_FILE_SIZE (off_t)(4294967295) //最大4GB
 #define MERGE_FILE_READ_BUF_SIZE 1024
 
 
@@ -38,19 +39,6 @@
  */
 FILE* ReadFile(const char* file_path)
 {
-    off_t size=GetFileSize(file_path);
-    if (size == 0) 
-    {
-        log_error("Can't open the file.");
-        return NULL;
-    }
-
-    if(size < 0 || size > MAX_FILE_SIZE)
-    {
-        log_error("The file is larger than 4GB.");
-        return NULL;
-    }
-    
     FILE* fd=NULL;
     fd = fopen(file_path, "rb");
     if (fd == NULL)
@@ -78,6 +66,226 @@ FILE* WriteFile(const char* file_path)
         return NULL;
     }
     return fd;
+}
+
+int InitConfig(const char* file, DownloadFileInfo* file_info){
+    FILE* fd = WriteFile(file);
+    int ret = -1;
+    uint64_t block_len = 0;
+    const int fixed_head_len = sizeof(uint64_t) + sizeof(uint8_t);
+    DownloadBlockInfo init_block_info;
+
+    if (fd == NULL)
+    {
+        log_error("Can't open the file.");
+        return 1;
+    }
+    if (NULL == file_info) {
+        log_error("File info is NULL");
+        fclose(fd);
+        return 1;
+    }
+    if (0 == file_info->file_size || 0 == file_info->block_num) {
+        log_error("File size or block number is zero.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fseek(fd, 0, SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't set the file size.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fwrite(&(file_info->file_size), 1, sizeof(uint64_t), fd);
+    if (sizeof(uint64_t) != ret) {
+        log_error("Can't set the file size.");
+        fclose(fd);
+
+        return 1;
+    }
+    ret = fseek(fd, sizeof(uint64_t), SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't set the block num.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fwrite(&(file_info->block_num), 1, sizeof(uint8_t), fd);
+    if (sizeof(uint8_t) != ret) {
+        log_error("Can't set the block num.");
+        fclose(fd);
+
+        return 1;
+    }
+    ret = fseek(fd, fixed_head_len, SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't init the block info.");
+        fclose(fd);
+        return 1;
+    }
+    // 根据block_num初始化后面的block_info
+    block_len = GetBlockSize(file_info->file_size, file_info->block_num);
+    for (size_t i = 0; i<file_info->block_num; i++) {
+        init_block_info.index = i;
+        init_block_info.head = i * block_len;
+        if ( i < file_info->block_num - 1){
+            init_block_info.len = block_len;
+        }
+        else {
+            init_block_info.len = file_info->file_size - init_block_info.head;
+        }
+        ret = fwrite(&(init_block_info), 1, sizeof(DownloadBlockInfo), fd);
+        if (sizeof(DownloadBlockInfo) != ret) {
+            log_error("Can't set the file size.");
+            fclose(fd);
+            return 1;
+        }
+    }
+    
+    fclose(fd);
+    return 0;
+}
+
+int ReadConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
+    FILE* fd;
+    int ret = -1;
+    int block_info_off = 0;
+    const int fixed_head_len = sizeof(uint64_t) + sizeof(uint8_t);
+    
+    if (NULL == file) {
+        log_error("Config file is NULL.");
+        return 1;
+    }
+    if (NULL == block_info) {
+        log_error("Config info is NULL.");
+        return 1;
+    }
+    if (0 == ExistFile(file)) {
+        log_error("Config file doesn't exist.");
+        return 1;
+    }
+
+    fd = ReadFile(file);
+    if (NULL == fd) {
+        return 1;
+    }
+
+    block_info_off = fixed_head_len + sizeof(DownloadBlockInfo) * block_info->index;
+    ret = fseek(fd, block_info_off, SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't read the block info.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fread(block_info, 1, sizeof(DownloadBlockInfo), fd);
+    if (sizeof(DownloadBlockInfo) != ret) {
+        log_error("Can't read the block info.");
+        fclose(fd);
+        return 1;
+    }
+    fclose(fd);
+    return 0;
+}
+
+int WriteConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
+    FILE* fd;
+    int ret = -1;
+    int block_info_off = 0;
+    const int fixed_head_len = sizeof(uint64_t) + sizeof(uint8_t);
+    
+    if (NULL == file) {
+        log_error("Config file is NULL.");
+        return 1;
+    }
+    if (NULL == block_info) {
+        log_error("Config info is NULL.");
+        return 1;
+    }
+    if (0 == ExistFile(file)) {
+        log_error("Config file doesn't exist.");
+        return 1;
+    }
+
+    fd = ReadFile(file);
+    if (NULL == fd) {
+        return 1;
+    }
+    
+    block_info_off = fixed_head_len + sizeof(DownloadBlockInfo) * block_info->index;
+    ret = fseek(fd, block_info_off, SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't write the block info.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fwrite(block_info, 1, sizeof(DownloadBlockInfo), fd);
+    if (sizeof(DownloadBlockInfo) != ret) {
+        log_error("Can't write the block info.");
+        fclose(fd);
+        return 1;
+    }
+    fclose(fd);
+    return 0;
+}
+
+int CheckDownloadStatus(const char* file){
+    FILE* fd;
+    int ret = -1;
+    uint8_t block_num = 0;
+    int block_info_off = 0;
+    const int fixed_head_len = sizeof(uint64_t) + sizeof(uint8_t);
+    DownloadBlockInfo block_info;
+    int download_complete_flag = 1;
+
+    
+    if (NULL == file) {
+        log_error("Config file is NULL.");
+        return -1;
+    }
+    
+    if (0 == ExistFile(file)) {
+        log_error("Config file doesn't exist.");
+        return -1;
+    }
+
+    fd = ReadFile(file);
+    if (NULL == fd) {
+        return -1;
+    }
+    
+    ret = fseek(fd, sizeof(uint64_t), SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't set the block num.");
+        fclose(fd);
+        return -1;
+    }
+    ret = fread(&block_num, 1, sizeof(uint8_t), fd);
+    if (sizeof(uint8_t) != ret) {
+        log_error("Can't set the block num.");
+        fclose(fd);
+        return -1;
+    }
+    
+    for (size_t i = 0; i<block_num; i++) {
+        block_info_off = fixed_head_len + sizeof(DownloadBlockInfo) * i;
+        ret = fseek(fd, block_info_off, SEEK_SET);
+        if (ret < 0) {
+            log_error("Can't read the block info.");
+            fclose(fd);
+            return -1;
+        }
+        memset(&block_info, 0, sizeof(DownloadBlockInfo));
+        ret = fread(&block_info, 1, sizeof(DownloadBlockInfo), fd);
+        if (sizeof(DownloadBlockInfo) != ret) {
+            log_error("Can't read the block info.");
+            fclose(fd);
+            return -1;
+        }
+        if (0 != block_info.len) {
+            download_complete_flag = 0;
+        }
+    }
+    fclose(fd);
+    return download_complete_flag;
 }
 
 /**
@@ -112,6 +320,7 @@ uint64_t GetFileSize(const char* file_path)
     return buf.st_size;
 }
 
+
 /**
  * @description: 读取第n块数据放入buf中
  * @param {FILE*} fd 文件描述符
@@ -142,7 +351,7 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  * @param {uint32_t} length 数组长度
  * @return {int} 0 成功 1 失败
  */
-int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, const uint32_t length)
+int WriteData(const char* prefix, const uint8_t index, const char* buf, const uint64_t length)
 {
     int s_index_length = GetIntDigit(index) + 1;
     char* s_index = (char*)malloc(s_index_length * sizeof(char));
@@ -156,7 +365,7 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
     free(s_index);
     log_debug("file_path is %s",path);
 
-    FILE* file = fopen(path, "wb");
+    FILE* file = fopen(path, "ab");
 
     if(file == NULL)
     {
@@ -165,6 +374,7 @@ int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, cons
         return 1;
     }
 
+    fseek(file, 0, SEEK_END);
     size_t count = 0;
     count=fwrite(buf, 1, length, file);
     if(count != length)
@@ -229,12 +439,23 @@ int ExistFile(const char* path)
  */
 uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size)
 {
+    if (0 == block_size) {
+        log_error("Block size is zero.");
+        return 0;
+    }
     uint32_t block_num = 0;
-    if(file_size % block_size == 0)
-        block_num = file_size / block_size;
-    else
-        block_num = file_size / block_size + 1;
+    block_num = ceil((double)file_size/block_size);
     return block_num;
+}
+
+uint64_t GetBlockSize(uint64_t file_size, uint8_t block_num){
+    uint64_t block_size = 0;
+    if (0 == block_num) {
+        log_error("Block number is zero.");
+        return 0;
+    }
+    block_size = ceil((double)file_size/block_num);
+    return block_size;
 }
 
 int CreateFile(const char* path){
@@ -302,5 +523,27 @@ int FreeFiles(char** files, int num){
         free(files[i]);
     }
     free(files);
+    return 0;
+}
+
+int ChangeDir(const char* target_dir, char* current_dir, int max_dir_len){
+    if (NULL == target_dir) {
+        log_error("Target directory is NULL.");
+        return 1;
+    }
+    if (0 == ExistFile(target_dir)) {
+        log_error("Target directory does't exist.");
+        return 1;
+    }
+    if (NULL != current_dir) {
+        if (NULL == getcwd(current_dir, max_dir_len)) {
+            log_error("Get current path error. Caused by %s.", strerror(errno));
+            return 1;
+        }
+    }
+    if (0 > chdir(target_dir)) {
+        log_error("Change to target directory failed. Caused by %s.", strerror(errno));
+        return 1;
+    }
     return 0;
 }

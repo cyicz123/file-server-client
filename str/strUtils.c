@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-30 15:17:29
+ * @LastEditTime: 2022-09-02 09:43:23
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -106,4 +106,9 @@ int Str2Addr(const char* str_addr, struct sockaddr_in* addr){
 		log_error("The address %s is illegal!", str_addr);
 		return 1;
 	}
+}
+
+int ConfigNameGen(char* config_file, const char* file, int max_len){
+    snprintf(config_file, max_len, ".%s.bin", file);
+    return 0;
 }

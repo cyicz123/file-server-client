@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:43
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-29 14:42:13
+ * @LastEditTime: 2022-09-02 15:30:05
  * @FilePath: /tcp-server/thread/thread.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -14,6 +14,9 @@
 #include <stdint.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdio.h>
+
+FILE* server_log;
 
 typedef struct thread_arg_server{
     struct sockaddr_in addr;
@@ -64,6 +67,15 @@ uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf);
  */
 uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf);
 
+/**
+ * @description: 处理Query报文中的查询文件列表功能
+ * @param {thread_arg_server*} arg
+ * @param {RequestBuf*} request_buf
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handleQueryListPath(thread_arg_server* arg, RequestBuf* request_buf);
+
+uint16_t handleQueryFileSize(thread_arg_server* arg, RequestBuf* request_buf);
 
 void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code);
 #endif

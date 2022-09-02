@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-31 15:31:03
+ * @LastEditTime: 2022-09-01 14:45:31
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -31,17 +31,17 @@ void StartServer(){
     int available_thread_id = -1;
 	socklen_t len = sizeof(struct sockaddr_in);
     int storage_ret = -1;
-	thread_arg_server arg[THREAD_SERVER_MAXIUM_THREADS]; 
+	thread_arg_server arg[SERVER_MAXIUM_THREADS]; 
     // 初始化 arg数组
-    memset(&arg, 0, sizeof(thread_arg_server) * THREAD_SERVER_MAXIUM_THREADS);
-    for (size_t i = 0; i < THREAD_SERVER_MAXIUM_THREADS; i++) {
+    memset(&arg, 0, sizeof(thread_arg_server) * SERVER_MAXIUM_THREADS);
+    for (size_t i = 0; i < SERVER_MAXIUM_THREADS; i++) {
         arg[i].fd = -1;
         arg[i].tid = 0;
     }
 
-    storage_ret = CreateFile(THREAD_SERVER_STORAGE_FILE);
+    storage_ret = CreateFile(SERVER_STORAGE_FILE);
     if (0 == storage_ret) {
-        log_error("Set the storage file file. Please check the path: %s", THREAD_SERVER_STORAGE_FILE);
+        log_error("Set the storage file file. Please check the path: %s", SERVER_STORAGE_FILE);
         exit(1);
     }
 
@@ -53,7 +53,7 @@ void StartServer(){
 	
 	while(1){
         // 选择一个可用的线程
-        for (available_thread_id = 0; available_thread_id < THREAD_SERVER_MAXIUM_THREADS; available_thread_id++) {
+        for (available_thread_id = 0; available_thread_id < SERVER_MAXIUM_THREADS; available_thread_id++) {
             if(arg[available_thread_id].fd == -1) break;
         }
 		if(available_thread_id == 256) break;
@@ -156,78 +156,15 @@ uint16_t handleDelete(thread_arg_server* arg, RequestBuf* request_buf){
 
 
 uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf){
-    int send_ret = -1;
-    int recv_ret = -1;
-    char **files;
-    int file_num = 0;
-    uint32_t net_file_num = 0;
-    char* prefix = NULL;
-    ReplyBuf reply_buf;
-
-    // 初始化files
-    files = (char**)malloc(sizeof(char*) * 255);
-
-    // 设置prefix
-    if(QUERY_MODE_LIST_WITH_PATH == request_buf->cmd){
-        log_info("Query the files in the specified directory.");
-        prefix = (char*)malloc(MAX_FILE_NAME_LENGTH);
-        memset(prefix, '\0', MAX_FILE_NAME_LENGTH);
-        memcpy(prefix, THREAD_SERVER_STORAGE_FILE, strlen(THREAD_SERVER_STORAGE_FILE));
-        recv_ret = ReadLine(arg->fd, prefix, MAX_FILE_NAME_LENGTH);
-        if (recv_ret < 0) {
-            return INTERNAL_SERVER_ERROR;
-        }
+    uint16_t query_ret = 0;
+    if (QUERY_MODE_LIST == request_buf->cmd || QUERY_MODE_LIST_WITH_PATH == request_buf->cmd) {
+        query_ret = handleQueryListPath(arg, request_buf);
     }
+    else if (QUERY_MODE_FILE_SIZE == request_buf->cmd || QUERY_MODE_FILE_SIZE_WITH_PATH == request_buf->cmd) {
+        query_ret = handleQueryFileSize(arg, request_buf);
+    }
+    return query_ret;
     
-    if (NULL == prefix) {
-        prefix = THREAD_SERVER_STORAGE_FILE;
-    }
-
-    file_num = ShowDirFiles(prefix, files);
-    if (file_num < 0) {
-        if (NULL != prefix) {
-            free(prefix);
-        }
-        return NOT_FOUND;
-    }
-    // 到了此步，说明查询成功，需要回复相应成功报文
-    reply_buf.type = request_buf->type;
-    reply_buf.status_code = REQUEST_OK;
-    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
-    if (send_ret < 0) {
-        FreeFiles(files, file_num);
-        if (NULL != prefix) {
-            free(prefix);
-        }
-        log_error("Send reply buf error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-    // 发送文件数量
-    net_file_num = htonl(file_num);
-    send_ret = Send(arg->fd, &net_file_num, sizeof(uint32_t));
-    if (send_ret < 0) {
-        FreeFiles(files, file_num);
-        if (NULL != prefix) {
-            free(prefix);
-        }
-        log_error("Send file numbers error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-    //发送文件
-    for (size_t i=0; i<file_num; i++) {
-        send_ret = WriteLine(arg->fd, files[i], MAX_FILE_NAME_LENGTH);
-        if (send_ret < 0) {
-            FreeFiles(files, file_num);
-            if (NULL != prefix) {
-                free(prefix);
-            }
-            log_error("Send file name error.");
-            return INTERNAL_SERVER_ERROR;
-        }
-    }
-    log_info("Send files completely.");
-    FreeFiles(files, file_num);
-    return 0;
 }
 
 
@@ -250,4 +187,120 @@ void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code
         log_error("Send buf failed. Caused by %s.", strerror(errno));
     }
     return;
+}
+
+uint16_t handleQueryListPath(thread_arg_server* arg, RequestBuf* request_buf){
+    int send_ret = -1;
+    int recv_ret = -1;
+    char **files;
+    int file_num = 0;
+    uint32_t net_file_num = 0;
+    char prefix[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    ReplyBuf reply_buf;
+
+
+    // 初始化files
+    files = (char**)malloc(sizeof(char*) * 255);
+
+    // 设置prefix
+    if(QUERY_MODE_LIST_WITH_PATH == request_buf->cmd){
+        log_info("Query the files in the specified directory.");
+        recv_ret = ReadLine(arg->fd, prefix, MAX_FILE_NAME_LENGTH);
+        if (recv_ret < 0) {
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    
+    
+
+    file_num = ShowDirFiles(prefix, files);
+    if (file_num < 0) {
+        return NOT_FOUND;
+    }
+    // 到了此步，说明查询成功，需要回复相应成功报文
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (send_ret < 0) {
+        FreeFiles(files, file_num);
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 发送文件数量
+    net_file_num = htonl(file_num);
+    send_ret = Send(arg->fd, &net_file_num, sizeof(uint32_t));
+    if (send_ret < 0) {
+        FreeFiles(files, file_num);
+        log_error("Send file numbers error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    //发送文件
+    for (size_t i=0; i<file_num; i++) {
+        send_ret = WriteLine(arg->fd, files[i], MAX_FILE_NAME_LENGTH);
+        if (send_ret < 0) {
+            FreeFiles(files, file_num);
+            log_error("Send file name error.");
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    log_info("Send files completely.");
+    FreeFiles(files, file_num);
+    return 0;
+}
+
+uint16_t handleQueryFileSize(thread_arg_server* arg, RequestBuf* request_buf){
+    char file_path[MAX_FILE_NAME_LENGTH] = {'\0'};
+    int recv_ret = -1;
+    int send_ret = -1;
+    int chdir_ret = -1;
+    int exist_file = false;
+    uint64_t file_size = 0;
+    ReplyBuf reply_buf;
+    char start_dir[MAX_FILE_NAME_LENGTH];
+    char resource_dir[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    
+    // 切换目录
+    if(QUERY_MODE_FILE_SIZE_WITH_PATH == request_buf->cmd){
+        log_info("Query the file size in the specified directory.");
+        recv_ret = ReadLine(arg->fd, resource_dir, MAX_FILE_NAME_LENGTH);
+        if (recv_ret < 0) {
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    chdir_ret = ChangeDir(resource_dir, start_dir, MAX_FILE_NAME_LENGTH);
+    if (0 != chdir_ret) {
+        return NOT_FOUND;
+    }
+
+    recv_ret = ReadLine(arg->fd, file_path, sizeof(file_path));
+    if (recv_ret < 0) {
+        log_error("Receive the file name failed during handing the query about file size.");
+        ChangeDir(start_dir, NULL, PATHNAME_MAX);
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    exist_file = ExistFile(file_path);
+    if (false == exist_file) {
+        ChangeDir(start_dir, NULL, PATHNAME_MAX);
+        return NOT_FOUND;
+    }
+    file_size = GetFileSize(file_path);
+    
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (send_ret < 0) {
+        ChangeDir(start_dir, NULL, PATHNAME_MAX);
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    send_ret = Send(arg->fd, &file_size, sizeof(uint64_t));
+    if (send_ret < 0) {
+        ChangeDir(start_dir, NULL, PATHNAME_MAX);
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    ChangeDir(start_dir, NULL, PATHNAME_MAX);
+    return 0;
 }

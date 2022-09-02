@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-30 15:16:45
+ * @LastEditTime: 2022-09-02 09:44:01
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -53,4 +53,12 @@ int CompareByte(const void* s1, const void* s2, int size);
  * @return {int} 0 成功 1 失败
  */
 int Str2Addr(const char* str_addr, struct sockaddr_in* addr);
+
+/**
+ * @description: 生成配置文件名
+ * @param {char*} file 配置文件名
+ * @param {int} max_len 最大长度
+ * @return {*} 0 成功 1 失败
+ */
+int ConfigNameGen(char* config_file, const char* file, int max_len);
 #endif

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:36
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-31 17:23:10
+ * @LastEditTime: 2022-09-01 14:45:47
  * @FilePath: /tcp-server/network/network.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -20,7 +20,7 @@
 
 int PrepareServer(struct sockaddr_in* server_addr, pthread_mutex_t* mutex){
 	int socket_fd = -1;
-    uint16_t bind_port = THREAD_SERVER_START_PORT;
+    uint16_t bind_port = SERVER_START_PORT;
     int bind_ret = -1;
     int listen_ret = -1;
     
@@ -208,7 +208,7 @@ int Send(int fd, void* buf, size_t size){
     }
 }
 
-int WriteLine(int fd, void* buf, size_t size){
+int WriteLine(int fd, const void* buf, size_t size){
     char* s_buf = (char*)malloc(size+1);
     memset(s_buf, 0, size+1);
     memcpy(s_buf, buf, size);

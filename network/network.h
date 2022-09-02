@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-31 15:50:14
+ * @LastEditTime: 2022-09-02 14:50:32
  * @FilePath: /tcp-server/network/network.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -13,8 +13,9 @@
 
 #include <netinet/in.h>
 #include <stdint.h>
-#include <pthread.h> 
 #include <sys/socket.h>
+
+#define SINGLE_TRANSMISSION_LEN 1073741824
 
 #define TYPE_GET 1
 #define TYPE_POST 2
@@ -35,6 +36,10 @@
 
 #define QUERY_MODE_LIST 0 //默认路径查询
 #define QUERY_MODE_LIST_WITH_PATH 1  //带有路径的查询
+#define QUERY_MODE_FILE_SIZE 2
+#define QUERY_MODE_FILE_SIZE_WITH_PATH 3
+
+#define GET_MODE_DOWNLOAD 0
 
 
 /**
@@ -116,6 +121,6 @@ int Send(int fd, void* buf, size_t size);
  * @param {size_t} size 最多发送的字节
  * @return {int}  发送的字节数 -1 连接断开 
  */
-int WriteLine(int fd, void* buf, size_t size);
+int WriteLine(int fd, const void* buf, size_t size);
 
 #endif

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-08-30 20:43:27
+ * @LastEditTime: 2022-09-02 14:03:40
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -14,6 +14,25 @@
 #include <stdint.h>
 
 #define MAX_FILE_NAME_LENGTH 255
+
+#ifdef _POSIX_PATH_MAX
+#define PATHNAME_MAX _POSIX_PATH_MAX
+#else
+#define PATHNAME_MAX 1000
+#endif
+
+#define HERE "."
+
+typedef struct DownloadBlockInfo{
+    uint8_t index;
+    uint64_t head;
+    uint64_t len;
+}DownloadBlockInfo;
+
+typedef struct DownloadFileInfo{
+    uint64_t file_size;
+    uint8_t block_num;
+}DownloadFileInfo;
 
 /**
  * @description: 以rb模式打开文件，同时对文件进行检查是否大于4GB。
@@ -28,6 +47,37 @@ FILE* ReadFile(const char* file_path);
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
 FILE* WriteFile(const char* file_path);
+
+/**
+ * @description: 将配置写入二进制配置文件，如果不存在则创建
+ * @param {char*} file 配置文件名
+ * @param {DownloadFileInfo*} file_info 配置文件参数
+ * @return {int} 0 成功 1 失败
+ */
+int InitConfig(const char* file, DownloadFileInfo* file_info);
+
+/**
+ * @description: 根据block_info中的index在配置文件file中读取下载信息
+ * @param {char*} file 配置文件的文件名
+ * @param {DownloadBlockInfo*} block_info 要获取的下载块信息
+ * @return {int} 0 成功 1 失败
+ */
+int ReadConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info);
+
+/**
+ * @description: 写入配置文件对应的块
+ * @param {char*} file 配置文件文件名
+ * @param {DownloadBlockInfo*} block_info 待写入的块
+ * @return {int} 0 成功 1 失败
+ */
+int WriteConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info);
+
+/**
+ * @description: 检查下载是否完成
+ * @param {char*} file 配置文件文件名
+ * @return {int} 0 未完成 1 完成 -1 出错
+ */
+int CheckDownloadStatus(const char* file);
 
 /**
  * @description: 关闭文件
@@ -61,7 +111,7 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  * @param {uint32_t} length 数组长度
  * @return {int} 0 成功 1 失败
  */
-int WriteData(const char* prefix, const uint32_t index, const uint8_t* buf, const uint32_t length);
+int WriteData(const char* prefix, const uint8_t index, const char* buf, const uint64_t length);
 
 /**
  * @description: 打开路径为path的小文件，写入fd末尾。
@@ -87,6 +137,14 @@ int ExistFile(const char* path);
 uint32_t GetBlockNum(uint64_t file_size, uint32_t block_size);
 
 /**
+ * @description: 根据总文件大小和分割块数目得到分割块大小
+ * @param {uint64_t} file_size 总文件大小
+ * @param {uint8_t} block_num 分割块总数
+ * @return {uint64_t} block_size 分割块大小
+ */
+uint64_t GetBlockSize(uint64_t file_size, uint8_t block_num);
+
+/**
  * @description: 创建一个同级下的目录，如果目录已存在则不创建
  * @param {char*} path 文件路径
  * @return {*} 0 失败 1 成功
@@ -108,6 +166,15 @@ int ShowDirFiles(const char* path, char* files[]);
  * @return {int} 0 成功 1 失败
  */
 int FreeFiles(char** files, int num);
+
+/**
+ * @description: 移动到目标路径，并返回移动前的路径
+ * @param {char*} target_dir 目标路径
+ * @param {char*} current_dir 当前路径
+ * @param {int} max_dir_len 字符串的最大长度
+ * @return {*} 0 成功 1 失败
+ */
+int ChangeDir(const char* target_dir, char* current_dir, int max_dir_len);
 
 
 #endif
