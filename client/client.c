@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:13
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 16:23:11
+ * @LastEditTime: 2022-09-03 14:30:12
  * @FilePath: /tcp-server/client/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -133,7 +133,7 @@ int StartClient(int argc, char* argv[]){
 		return 0;
 	}
 	if (NULL != download_file) {
-        ret = DownloadFile(&ser_addr, download_file, NULL);
+        ret = DownloadFile(&ser_addr, download_file, "./storage");
         if (0 != ret) {
             log_error("Download failed.");
             return -1;
@@ -344,30 +344,31 @@ uint64_t QueryFileSize(struct sockaddr_in* ser_addr, const char* file){
     return file_size;
 }
 
-int DownloadFile(struct sockaddr_in* ser_addr, char* file, const char* storage_file){
+int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
     // 声明
-    const char* path = (NULL == storage_file) ? HERE : storage_file; // 为空则存放在同级目录下
-    char start_path[PATHNAME_MAX] = {'\0'};
+    char* path = (NULL == storage_file) ? HERE : storage_file; // 为空则存放在同级目录下
+    char download_config_file[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char start_path[MAX_FILE_NAME_LENGTH] = {'\0'};
     int ret = -1;
     DownloadBlockInfo block_info;
     DownloadFileInfo file_info;
-    char download_config_file[MAX_FILE_NAME_LENGTH];
+    char config_file[2 * MAX_FILE_NAME_LENGTH] = {'\0'};
     int exist_config_file_flag = false;
     FILE* write_fd = NULL;
 
     // 初始化
     memset(&block_info, 0, sizeof(DownloadBlockInfo));
     memset(&file_info, 0, sizeof(DownloadFileInfo));
-    memset(download_config_file, 0, sizeof(download_config_file));
+    memset(config_file, 0, sizeof(config_file));
 
     // 条件检查
     if (NULL == file) {
         log_error("Transmit the file is NULL.");
         return 1;
     }
-    
+
     // 切换到下载文件存放路径
-    ret = ChangeDir(path, start_path, PATHNAME_MAX);
+    ret = ChangeDir(path, start_path, MAX_FILE_NAME_LENGTH);
     if (0 != ret) {
         return 1;
     }
@@ -375,19 +376,20 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, const char* storage_f
     ConfigNameGen(download_config_file, file, MAX_FILE_NAME_LENGTH);
     exist_config_file_flag = ExistFile(download_config_file);
 
+
     // 初始化下载
     if (false == exist_config_file_flag) {
         file_info.block_num = CLIENT_DOWNLOADS_THREADS_NUM;
         file_info.file_size = QueryFileSize(ser_addr, file);
         if (0 == file_info.file_size) {
             log_error("Occur an error in getting file size.");
-            ChangeDir(start_path, NULL, PATHNAME_MAX);
+            ChangeDir(start_path, NULL, MAX_FILE_NAME_LENGTH);
             return 1;
         }
-        ret = InitConfig(download_config_file, &file_info);
+        ret = InitConfig(config_file, &file_info);
         if (1 == ret) {
             log_error("Set config failed.");
-            ChangeDir(start_path, NULL, PATHNAME_MAX);
+            ChangeDir(start_path, NULL, MAX_FILE_NAME_LENGTH);
             return 1;
         }
     }
@@ -402,7 +404,7 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, const char* storage_f
     for (size_t i=0; i<file_info.block_num; i++) {
         pthread_join(args[i].tid, NULL);
     }
-    if (1 == CheckDownloadStatus(download_config_file)) {
+    if (1 == CheckDownloadStatus(config_file)) {
         // 合并数据包
         write_fd = WriteFile(file);
         for (size_t i=0; i<file_info.block_num; i++) {
@@ -424,9 +426,8 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, const char* storage_f
         fclose(write_fd);
     }
     
-
+    ChangeDir(start_path, NULL, MAX_FILE_NAME_LENGTH);
     // 回到初始路径
-    ChangeDir(start_path, NULL, PATHNAME_MAX);
     return 0;
 }
 
@@ -435,6 +436,8 @@ void* dowloadFile(void* arg){
     DownloadBlockInfo block_info;
     RequestBuf request_buf;
     ReplyBuf reply_buf;
+    uint64_t temp_head = 0;
+    uint64_t once_recv_byte = 0;
     char config_file[MAX_FILE_NAME_LENGTH];
     int ret = -1;
     int fd = -1;
@@ -480,11 +483,14 @@ void* dowloadFile(void* arg){
         close(fd);
         return NULL;
     }
+    // 发送下载文件名 TODO: 需要增加可选的下载路径选项
     ret = WriteLine(fd, client_arg->file, MAX_FILE_NAME_LENGTH);
     if (ret <= 0) {
         return NULL;
     }
+    // 发送下载信息
     ret = Send(fd, &block_info, sizeof(DownloadBlockInfo));
+
     // 接收回复报文
     ret = Receive(fd, &reply_buf, sizeof(ReplyBuf));
     if (0 != ret) {
@@ -506,58 +512,37 @@ void* dowloadFile(void* arg){
     progressbar* bar = progressbar_new(bar_label, block_info.len);
     progressbar_inc(bar);
     while (0 != block_info.len) {
-        uint64_t temp_head = block_info.head;
+        temp_head = block_info.head;
         if (block_info.len < SINGLE_TRANSMISSION_LEN) {
-            ret = Receive(fd, recv_buf, block_info.len);
-            if (0 != ret) {
-                log_error("Occur an error during downloading.");
-                close(fd);
-                return NULL;
-            }
-            ret = WriteData(client_arg->file, client_arg->index, recv_buf, block_info.len);
-            if (0 != ret) {
-                log_error("Fail to write the download data into disk.");
-                progressbar_free(bar);
-                close(fd);
-                return NULL;
-            }
-
-            block_info.head = block_info.head + block_info.len;
-            block_info.len = 0;
-            ret = WriteConfigDownloadInfo(config_file, &block_info);
-            if (0 != ret) {
-                log_error("Fail to write the download config into disk.");
-                progressbar_free(bar);
-                close(fd);
-                return NULL;
-            }
-
+            once_recv_byte = block_info.len;
         }
         else {
-            ret = Receive(fd, recv_buf, SINGLE_TRANSMISSION_LEN);
-            if (0 != ret) {
-                log_error("Occur an error during downloading.");
-                close(fd);
-                return NULL;
-            }
-            ret = WriteData(client_arg->file, client_arg->index, recv_buf, SINGLE_TRANSMISSION_LEN);
-            if (0 != ret) {
-                log_error("Fail to write the download data into disk.");
-                progressbar_free(bar);
-                close(fd);
-                return NULL;
-            }
-
-            block_info.head = block_info.head + SINGLE_TRANSMISSION_LEN;
-            block_info.len = block_info.len - SINGLE_TRANSMISSION_LEN;
-            ret = WriteConfigDownloadInfo(config_file, &block_info);
-            if (0 != ret) {
-                log_error("Fail to write the download config into disk.");
-                progressbar_free(bar);
-                close(fd);
-                return NULL;
-            }
+            once_recv_byte = SINGLE_TRANSMISSION_LEN;
+        }   
+        ret = Receive(fd, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Occur an error during downloading.");
+            close(fd);
+            return NULL;
         }
+        ret = WriteData(client_arg->file, client_arg->index, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Fail to write the download data into disk.");
+            progressbar_free(bar);
+            close(fd);
+            return NULL;
+        }
+
+        block_info.head = block_info.head + once_recv_byte;
+        block_info.len = block_info.len - once_recv_byte;
+        ret = WriteConfigDownloadInfo(config_file, &block_info);
+        if (0 != ret) {
+            log_error("Fail to write the download config into disk.");
+            progressbar_free(bar);
+            close(fd);
+            return NULL;
+        }
+
         progressbar_update(bar, temp_head - block_info.head);
     }
     progressbar_free(bar);

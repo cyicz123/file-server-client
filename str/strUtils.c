@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 09:43:23
+ * @LastEditTime: 2022-09-03 10:35:39
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -111,4 +111,34 @@ int Str2Addr(const char* str_addr, struct sockaddr_in* addr){
 int ConfigNameGen(char* config_file, const char* file, int max_len){
     snprintf(config_file, max_len, ".%s.bin", file);
     return 0;
+}
+
+
+void Combine(char* destination, const char* path1, const char* path2){
+    if(path1 == NULL && path2 == NULL) {
+        strcpy(destination, "");;
+    }
+    else if(path2 == NULL || strlen(path2) == 0) {
+        strcpy(destination, path1);
+    }
+    else if(path1 == NULL || strlen(path1) == 0) {
+        strcpy(destination, path2);
+    } 
+    else {
+        char directory_separator[] = "/";
+#ifdef WIN32
+        directory_separator[0] = '\\';
+#endif
+        const char *last_char = path1;
+        while(*last_char != '\0')
+            last_char++;        
+        int append_directory_separator = 0;
+        if(strcmp(last_char, directory_separator) != 0) {
+            append_directory_separator = 1;
+        }
+        strcpy(destination, path1);
+        if(append_directory_separator)
+            strcat(destination, directory_separator);
+        strcat(destination, path2);
+    }
 }

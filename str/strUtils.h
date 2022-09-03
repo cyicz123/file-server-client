@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 09:44:01
+ * @LastEditTime: 2022-09-03 10:36:06
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -61,4 +61,13 @@ int Str2Addr(const char* str_addr, struct sockaddr_in* addr);
  * @return {*} 0 成功 1 失败
  */
 int ConfigNameGen(char* config_file, const char* file, int max_len);
+
+/**
+ * @description: 将path1和path2拼接成dest
+ * @param {char*} destination
+ * @param {char*} path1 前缀
+ * @param {char*} path2 后缀
+ * @return {*}
+ */
+void Combine(char* destination, const char* path1, const char* path2);
 #endif

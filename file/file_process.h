@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 14:03:40
+ * @LastEditTime: 2022-09-03 11:02:12
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define MAX_DIR_FILES_NUM 255
 #define MAX_FILE_NAME_LENGTH 255
 
 #ifdef _POSIX_PATH_MAX
@@ -21,7 +22,7 @@
 #define PATHNAME_MAX 1000
 #endif
 
-#define HERE "."
+#define HERE "./"
 
 typedef struct DownloadBlockInfo{
     uint8_t index;

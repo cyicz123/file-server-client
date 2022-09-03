@@ -5,6 +5,10 @@ SET(CMAKE_BUILD_TYPE "DEBUG")
 SET(CMAKE_C_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
 SET(CMAKE_C_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
 
+set(CURSES_NEED_NCURSES TRUE)
+find_package(Curses)
+include_directories(${CURSES_INCLUDE_DIRS})
+
 link_libraries(m)
 link_libraries(pthread)
 # add_subdirectory(md5)
@@ -14,6 +18,7 @@ add_subdirectory(log)
 add_subdirectory(network)
 add_subdirectory(server)
 add_subdirectory(client)
+add_subdirectory(progressbar)
 
 add_executable(cli client.c)
 add_executable(ser server.c)

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:20
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 15:53:42
+ * @LastEditTime: 2022-09-03 10:59:27
  * @FilePath: /tcp-server/client/client.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%Av
  */
@@ -25,6 +25,7 @@ FILE* client_log;
 
 typedef struct ClientThreadArg{
     struct sockaddr_in* addr;
+    char* storage_file;
     char* file;
     uint8_t index;
     pthread_t tid;
@@ -74,7 +75,7 @@ uint64_t QueryFileSize(struct sockaddr_in* ser_addr, const char* file);
  * @param {char*} storage_file 文件存放路径
  * @return {*} 0 成功 1 失败 -1 中断
  */
-int DownloadFile(struct sockaddr_in* ser_addr, char* file, const char* storage_file);
+int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file);
 
 /**
  * @description: 根据参数下载对应服务器对应内容

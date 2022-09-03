@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-01 14:45:31
+ * @LastEditTime: 2022-09-03 14:12:23
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,6 +10,7 @@
 #include "../config.h"
 #include "../log/log.h"
 #include "../file/file_process.h"
+#include "../str/strUtils.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -141,6 +142,97 @@ void *HandleClient(void* arg){
 }
 
 uint16_t handleGet(thread_arg_server* arg, RequestBuf* request_buf){
+    uint16_t ret = 0;
+    if (GET_MODE_DOWNLOAD == request_buf->cmd || GET_MODE_DOWNLOAD_WITH_PATH == request_buf->cmd) {
+        ret = handleGetDownload(arg, request_buf);
+    }
+    
+    return ret;
+}
+
+uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
+    ReplyBuf reply_buf;
+    int ret = -1;
+    char dir_path[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    char file_name[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char file_path[MAX_FILE_NAME_LENGTH + MAX_FILE_NAME_LENGTH] = {'\0'}; // 两倍，防止拼接溢出
+    char buf[SINGLE_TRANSMISSION_LEN] = {0};
+    uint64_t once_send_byte = 0;
+    DownloadBlockInfo download_info;
+    FILE* read_fd = NULL;
+
+    // 条件检查
+    if(GET_MODE_DOWNLOAD_WITH_PATH == request_buf->cmd){
+        // 接收可选的下载路径选项
+        log_info("Download the file size in the specified directory.");
+        memset(dir_path, 0, MAX_FILE_NAME_LENGTH);
+        ret = ReadLine(arg->fd, dir_path, MAX_FILE_NAME_LENGTH);
+        if (ret < 0) {
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    ret = ExistFile(dir_path);
+    if (false == ret) {
+        return NOT_FOUND;
+    }
+    // 接收文件名
+    ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
+    if (ret < 0) {
+        log_error("Receive the file name failed during handing the query about file size.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 接收下载信息
+    ret = Receive(arg->fd, &download_info, sizeof(DownloadBlockInfo));
+    if (0 != ret) {
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 根据路径和文件名合成url路径
+    Combine(file_path, dir_path, file_name);
+    ret = ExistFile(file_path);
+    if (false == ret) {
+        return NOT_FOUND;
+    }
+    // 回复成功请求报文
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (0 != ret) {
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 发送下载数据
+    read_fd = ReadFile(file_path);
+    while (0 != download_info.len) {
+        if (download_info.len < SINGLE_TRANSMISSION_LEN) {
+            once_send_byte = download_info.len;
+        }
+        else {
+            once_send_byte = SINGLE_TRANSMISSION_LEN;
+        }
+        // 文件可能超过4G，需要用fseeko替代fseek
+        ret = fseeko(read_fd, download_info.head, SEEK_SET);
+        if (ret < 0) {
+            log_error("Can't read the data.");
+            CloseFile(read_fd);
+            return INTERNAL_SERVER_ERROR; 
+        }
+        // 读取文件数据
+        memset(buf, 0, SINGLE_TRANSMISSION_LEN);
+        ret = fread(buf, 1, once_send_byte, read_fd);
+        if (once_send_byte != ret) {
+            log_error("Can't read the data.");
+            CloseFile(read_fd);
+            return INTERNAL_SERVER_ERROR;
+        }
+        // 发送文件数据
+        ret = Send(arg->fd, buf, once_send_byte);
+        if (0 != ret) {
+            return INTERNAL_SERVER_ERROR;
+        }
+        // 更新下载信息
+        download_info.head = download_info.head + once_send_byte;
+        download_info.len = download_info.len - once_send_byte;
+    }
+    CloseFile(read_fd);
     return 0;
 }
 
@@ -167,6 +259,116 @@ uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf){
     
 }
 
+uint16_t handleQueryListPath(thread_arg_server* arg, RequestBuf* request_buf){
+    int ret = -1;
+    char **files;
+    int file_num = 0;
+    uint32_t net_file_num = 0;
+    char prefix[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    ReplyBuf reply_buf;
+
+
+    // 初始化files
+    files = (char**)malloc(sizeof(char*) * MAX_DIR_FILES_NUM);
+
+    // 设置prefix
+    if(QUERY_MODE_LIST_WITH_PATH == request_buf->cmd){
+        log_info("Query the files in the specified directory.");
+        ret = ReadLine(arg->fd, prefix, MAX_FILE_NAME_LENGTH);
+        if (ret < 0) {
+            free(files);
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    
+    
+
+    file_num = ShowDirFiles(prefix, files);
+    if (file_num < 0) {
+        free(files);
+        return NOT_FOUND;
+    }
+    // 到了此步，说明查询成功，需要回复相应成功报文
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (ret < 0) {
+        FreeFiles(files, file_num);
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 发送文件数量
+    net_file_num = htonl(file_num);
+    ret = Send(arg->fd, &net_file_num, sizeof(uint32_t));
+    if (ret < 0) {
+        FreeFiles(files, file_num);
+        log_error("Send file numbers error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    //发送文件
+    for (size_t i=0; i<file_num; i++) {
+        ret = WriteLine(arg->fd, files[i], MAX_FILE_NAME_LENGTH);
+        if (ret < 0) {
+            FreeFiles(files, file_num);
+            log_error("Send file name error.");
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    log_info("Send files completely.");
+    FreeFiles(files, file_num);
+    return 0;
+}
+
+uint16_t handleQueryFileSize(thread_arg_server* arg, RequestBuf* request_buf){
+    char dir_path[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    char file_name[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char file_path[MAX_FILE_NAME_LENGTH + MAX_FILE_NAME_LENGTH] = {'\0'}; // 两倍，防止拼接溢出
+    int ret = -1;
+    int exist_file = false;
+    uint64_t file_size = 0;
+    ReplyBuf reply_buf;
+    
+    if(QUERY_MODE_FILE_SIZE_WITH_PATH == request_buf->cmd){
+        log_info("Query the file size in the specified directory.");
+        memset(dir_path, 0, MAX_FILE_NAME_LENGTH);
+        ret = ReadLine(arg->fd, dir_path, MAX_FILE_NAME_LENGTH);
+        if (ret < 0) {
+            return INTERNAL_SERVER_ERROR;
+        }
+    }
+    ret = ExistFile(dir_path);
+    if (false == ret) {
+        return NOT_FOUND;
+    }
+
+    ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
+    if (ret < 0) {
+        log_error("Receive the file name failed during handing the query about file size.");
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    Combine(file_path, dir_path, file_name);
+    exist_file = ExistFile(file_path);
+    if (false == exist_file) {
+        return NOT_FOUND;
+    }
+    file_size = GetFileSize(file_path);
+    
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (ret < 0) {
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    ret = Send(arg->fd, &file_size, sizeof(uint64_t));
+    if (ret < 0) {
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    return 0;
+}
 
 uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf){
     return 0;
@@ -189,118 +391,3 @@ void handleError(thread_arg_server* arg, RequestBuf* request_buf, int error_code
     return;
 }
 
-uint16_t handleQueryListPath(thread_arg_server* arg, RequestBuf* request_buf){
-    int send_ret = -1;
-    int recv_ret = -1;
-    char **files;
-    int file_num = 0;
-    uint32_t net_file_num = 0;
-    char prefix[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
-    ReplyBuf reply_buf;
-
-
-    // 初始化files
-    files = (char**)malloc(sizeof(char*) * 255);
-
-    // 设置prefix
-    if(QUERY_MODE_LIST_WITH_PATH == request_buf->cmd){
-        log_info("Query the files in the specified directory.");
-        recv_ret = ReadLine(arg->fd, prefix, MAX_FILE_NAME_LENGTH);
-        if (recv_ret < 0) {
-            return INTERNAL_SERVER_ERROR;
-        }
-    }
-    
-    
-
-    file_num = ShowDirFiles(prefix, files);
-    if (file_num < 0) {
-        return NOT_FOUND;
-    }
-    // 到了此步，说明查询成功，需要回复相应成功报文
-    reply_buf.type = request_buf->type;
-    reply_buf.status_code = REQUEST_OK;
-    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
-    if (send_ret < 0) {
-        FreeFiles(files, file_num);
-        log_error("Send reply buf error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-    // 发送文件数量
-    net_file_num = htonl(file_num);
-    send_ret = Send(arg->fd, &net_file_num, sizeof(uint32_t));
-    if (send_ret < 0) {
-        FreeFiles(files, file_num);
-        log_error("Send file numbers error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-    //发送文件
-    for (size_t i=0; i<file_num; i++) {
-        send_ret = WriteLine(arg->fd, files[i], MAX_FILE_NAME_LENGTH);
-        if (send_ret < 0) {
-            FreeFiles(files, file_num);
-            log_error("Send file name error.");
-            return INTERNAL_SERVER_ERROR;
-        }
-    }
-    log_info("Send files completely.");
-    FreeFiles(files, file_num);
-    return 0;
-}
-
-uint16_t handleQueryFileSize(thread_arg_server* arg, RequestBuf* request_buf){
-    char file_path[MAX_FILE_NAME_LENGTH] = {'\0'};
-    int recv_ret = -1;
-    int send_ret = -1;
-    int chdir_ret = -1;
-    int exist_file = false;
-    uint64_t file_size = 0;
-    ReplyBuf reply_buf;
-    char start_dir[MAX_FILE_NAME_LENGTH];
-    char resource_dir[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
-    
-    // 切换目录
-    if(QUERY_MODE_FILE_SIZE_WITH_PATH == request_buf->cmd){
-        log_info("Query the file size in the specified directory.");
-        recv_ret = ReadLine(arg->fd, resource_dir, MAX_FILE_NAME_LENGTH);
-        if (recv_ret < 0) {
-            return INTERNAL_SERVER_ERROR;
-        }
-    }
-    chdir_ret = ChangeDir(resource_dir, start_dir, MAX_FILE_NAME_LENGTH);
-    if (0 != chdir_ret) {
-        return NOT_FOUND;
-    }
-
-    recv_ret = ReadLine(arg->fd, file_path, sizeof(file_path));
-    if (recv_ret < 0) {
-        log_error("Receive the file name failed during handing the query about file size.");
-        ChangeDir(start_dir, NULL, PATHNAME_MAX);
-        return INTERNAL_SERVER_ERROR;
-    }
-
-    exist_file = ExistFile(file_path);
-    if (false == exist_file) {
-        ChangeDir(start_dir, NULL, PATHNAME_MAX);
-        return NOT_FOUND;
-    }
-    file_size = GetFileSize(file_path);
-    
-    reply_buf.type = request_buf->type;
-    reply_buf.status_code = REQUEST_OK;
-    send_ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
-    if (send_ret < 0) {
-        ChangeDir(start_dir, NULL, PATHNAME_MAX);
-        log_error("Send reply buf error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-
-    send_ret = Send(arg->fd, &file_size, sizeof(uint64_t));
-    if (send_ret < 0) {
-        ChangeDir(start_dir, NULL, PATHNAME_MAX);
-        log_error("Send reply buf error.");
-        return INTERNAL_SERVER_ERROR;
-    }
-    ChangeDir(start_dir, NULL, PATHNAME_MAX);
-    return 0;
-}
