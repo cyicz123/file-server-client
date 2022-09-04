@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-03 14:12:23
+ * @LastEditTime: 2022-09-04 15:51:59
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -82,6 +82,7 @@ void *HandleClient(void* arg){
     int ret = -1;
     int request_ret = -1;
 
+
     //初始化
     if (NULL == thread_arg) {
        return NULL; 
@@ -156,7 +157,7 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
     char dir_path[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
     char file_name[MAX_FILE_NAME_LENGTH] = {'\0'};
     char file_path[MAX_FILE_NAME_LENGTH + MAX_FILE_NAME_LENGTH] = {'\0'}; // 两倍，防止拼接溢出
-    char buf[SINGLE_TRANSMISSION_LEN] = {0};
+    char* buf = NULL;
     uint64_t once_send_byte = 0;
     DownloadBlockInfo download_info;
     FILE* read_fd = NULL;
@@ -201,7 +202,9 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
     }
     // 发送下载数据
     read_fd = ReadFile(file_path);
+    buf = (char*)malloc(sizeof(char) * SINGLE_TRANSMISSION_LEN);
     while (0 != download_info.len) {
+        buf = memset(buf, 0, sizeof(char) * SINGLE_TRANSMISSION_LEN);
         if (download_info.len < SINGLE_TRANSMISSION_LEN) {
             once_send_byte = download_info.len;
         }
@@ -213,6 +216,7 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
         if (ret < 0) {
             log_error("Can't read the data.");
             CloseFile(read_fd);
+            free(buf);
             return INTERNAL_SERVER_ERROR; 
         }
         // 读取文件数据
@@ -220,18 +224,21 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
         ret = fread(buf, 1, once_send_byte, read_fd);
         if (once_send_byte != ret) {
             log_error("Can't read the data.");
+            free(buf);
             CloseFile(read_fd);
             return INTERNAL_SERVER_ERROR;
         }
         // 发送文件数据
         ret = Send(arg->fd, buf, once_send_byte);
         if (0 != ret) {
+            free(buf);
             return INTERNAL_SERVER_ERROR;
         }
         // 更新下载信息
         download_info.head = download_info.head + once_send_byte;
         download_info.len = download_info.len - once_send_byte;
     }
+    free(buf);
     CloseFile(read_fd);
     return 0;
 }

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 15:48:31
+ * @LastEditTime: 2022-09-04 16:22:15
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -145,6 +145,54 @@ int InitConfig(const char* file, DownloadFileInfo* file_info){
     return 0;
 }
 
+int ReadConfigFileInfo(const char* file, DownloadFileInfo* file_info){
+    FILE* fd;
+    int ret = -1;
+
+    if (NULL == file) {
+        log_error("Config file is NULL.");
+        return 1;
+    }
+    if (NULL == file_info) {
+        log_error("Config file info is NULL.");
+        return 1;
+    }
+    if (0 == ExistFile(file)) {
+        log_error("Config file doesn't exist.");
+        return 1;
+    }
+
+    fd = ReadFile(file);
+    if (NULL == fd) {
+        return 1;
+    }
+    ret = fseek(fd, 0, SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't read the file size.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fread(&(file_info->file_size), 1, sizeof(uint64_t), fd);
+    if (sizeof(uint64_t) != ret) {
+        log_error("Can't read the file size.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fseek(fd, sizeof(uint64_t), SEEK_SET);
+    if (ret < 0) {
+        log_error("Can't read the block num.");
+        fclose(fd);
+        return 1;
+    }
+    ret = fread(&(file_info->block_num), 1, sizeof(uint8_t), fd);
+    if (sizeof(uint8_t) != ret) {
+        log_error("Can't read the block num.");
+        fclose(fd);
+        return 1;
+    }
+    return 0;
+}
+
 int ReadConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
     FILE* fd;
     int ret = -1;
@@ -178,7 +226,7 @@ int ReadConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
     }
     ret = fread(block_info, 1, sizeof(DownloadBlockInfo), fd);
     if (sizeof(DownloadBlockInfo) != ret) {
-        log_error("Can't read the block info.");
+        log_error("Can't read the block info. Caused by %s.", strerror(errno));
         fclose(fd);
         return 1;
     }
@@ -205,7 +253,7 @@ int WriteConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
         return 1;
     }
 
-    fd = ReadFile(file);
+    fd = fopen(file, "rb+");
     if (NULL == fd) {
         return 1;
     }
@@ -219,7 +267,7 @@ int WriteConfigDownloadInfo(const char* file, DownloadBlockInfo* block_info){
     }
     ret = fwrite(block_info, 1, sizeof(DownloadBlockInfo), fd);
     if (sizeof(DownloadBlockInfo) != ret) {
-        log_error("Can't write the block info.");
+        log_error("Can't write the block info. Caused by %s.", strerror(errno));
         fclose(fd);
         return 1;
     }
@@ -356,16 +404,14 @@ int WriteData(const char* prefix, const uint8_t index, const char* buf, const ui
     int s_index_length = GetIntDigit(index) + 1;
     char* s_index = (char*)malloc(s_index_length * sizeof(char));
     Uint32ToStr(s_index, s_index_length, index);
-    log_debug("s_index is %s",s_index);
     
     size_t path_length = (strlen(prefix) + strlen(s_index) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
     char* path = (char*)malloc(path_length * sizeof(char));
 
     snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, s_index);
     free(s_index);
-    log_debug("file_path is %s",path);
 
-    FILE* file = fopen(path, "ab");
+    FILE* file = fopen(path, "ab+");
 
     if(file == NULL)
     {
@@ -374,7 +420,7 @@ int WriteData(const char* prefix, const uint8_t index, const char* buf, const ui
         return 1;
     }
 
-    fseek(file, 0, SEEK_END);
+    // fseek(file, 0, SEEK_END);
     size_t count = 0;
     count=fwrite(buf, 1, length, file);
     if(count != length)

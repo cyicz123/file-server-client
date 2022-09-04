@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:36
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-01 14:45:47
+ * @LastEditTime: 2022-09-04 15:54:25
  * @FilePath: /tcp-server/network/network.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -96,7 +96,7 @@ int ConnectServer(struct sockaddr_in* server_addr){
  */
 int Receive(int fd, void* buf, size_t size)
 {
-    int max_times = 10; 
+    int max_times = 1000; 
     size_t recv_byte = 0;
     size_t recv_once = 0;
     for(size_t i =0; i < max_times; i++)
@@ -178,7 +178,7 @@ int ReadLine(int fd, void* buf, size_t size){
 }
 
 int Send(int fd, void* buf, size_t size){
-    int max_times = 10; 
+    int max_times = 1000; 
     size_t send_byte = 0;
     size_t send_once = 0;
     for(size_t i =0; i < max_times; i++)

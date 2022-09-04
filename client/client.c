@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:13
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-03 17:59:50
+ * @LastEditTime: 2022-09-04 16:43:56
  * @FilePath: /tcp-server/client/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -13,6 +13,8 @@
 #include "../network/network.h"
 #include "../file/file_process.h"
 #include "../progressbar/progressbar.h"
+#include "../progressbar/statusbar.h"
+#include <signal.h>
 
 
 
@@ -133,7 +135,7 @@ int StartClient(int argc, char* argv[]){
 		return 0;
 	}
 	if (NULL != download_file) {
-        ret = DownloadFile(&ser_addr, download_file, "./storage");
+        ret = DownloadFile(&ser_addr, download_file, NULL);
         if (0 != ret) {
             log_error("Download failed.");
             return -1;
@@ -391,6 +393,12 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
             return 1;
         }
     }
+    else {
+        ret = ReadConfigFileInfo(download_config_file, &file_info);
+        if (0 != ret) {
+            return 1;
+        }
+    }
     // 下载
     ClientThreadArg args[CLIENT_DOWNLOADS_THREADS_NUM];
     for (size_t i=0; i<file_info.block_num; i++) {
@@ -405,7 +413,9 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
     if (1 == CheckDownloadStatus(download_config_file)) {
         // 合并数据包
         write_fd = WriteFile(file);
+        statusbar *status_bar = statusbar_new("Merging the download file. Please do not interrupt the program");
         for (size_t i=0; i<file_info.block_num; i++) {
+            statusbar_inc(status_bar);
             // 合并小数据包
             int index_s_length = GetIntDigit(i) + 1;
             char* index_s = (char*)malloc(index_s_length * sizeof(char));
@@ -421,130 +431,140 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
             remove(data_path);
             free(data_path);
         }
+        statusbar_finish(status_bar);
         fclose(write_fd);
+        remove(download_config_file);
     }
-    
     ChangeDir(start_path, NULL, MAX_FILE_NAME_LENGTH);
     // 回到初始路径
     return 0;
 }
 
 void* dowloadFile(void* arg){
-    // ClientThreadArg* client_arg = (ClientThreadArg*)arg;
-    // DownloadBlockInfo block_info;
-    // RequestBuf request_buf;
-    // ReplyBuf reply_buf;
-    // uint64_t temp_head = 0;
-    // uint64_t once_recv_byte = 0;
-    // char config_file[MAX_FILE_NAME_LENGTH];
-    // int ret = -1;
-    // int fd = -1;
-    // char recv_buf[SINGLE_TRANSMISSION_LEN] = {0};
-    // char bar_label[MAX_LABEL_LEN];
+    ClientThreadArg* client_arg = (ClientThreadArg*)arg;
+    DownloadBlockInfo block_info;
+    RequestBuf request_buf;
+    ReplyBuf reply_buf;
+    uint64_t start_head = 0;
+    uint64_t once_recv_byte = 0;
+    char config_file[MAX_FILE_NAME_LENGTH];
+    int ret = -1;
+    int fd = -1;
+    char* recv_buf = NULL;
+    char bar_label[MAX_LABEL_LEN];
 
-    // // 条件检查
-    // if (NULL == client_arg) {
-    //     log_error("Argument is NULL.");
-    //     return NULL;
-    // }
-    // if (NULL == client_arg->addr) {
-    //     log_error("Address is NULL.");
-    //     return NULL;
-    // }
-    // if (NULL == client_arg->file) {
-    //     log_error("Config file is NULL.");
-    //     return NULL;
-    // }
-    // ConfigNameGen(config_file, client_arg->file, MAX_FILE_NAME_LENGTH);
-    // if (0 == ExistFile(config_file)) {
-    //     log_error("Config file doesn't exist.");
-    //     return NULL;
-    // }
+    // 条件检查
+    if (NULL == client_arg) {
+        log_error("Argument is NULL.");
+        return NULL;
+    }
+    if (NULL == client_arg->addr) {
+        log_error("Address is NULL.");
+        return NULL;
+    }
+    if (NULL == client_arg->file) {
+        log_error("Config file is NULL.");
+        return NULL;
+    }
+    ConfigNameGen(config_file, client_arg->file, MAX_FILE_NAME_LENGTH);
+    if (0 == ExistFile(config_file)) {
+        log_error("Config file doesn't exist.");
+        return NULL;
+    }
 
-    // // 获取下载数据
-    // ret = ReadConfigDownloadInfo(config_file, &block_info);
-    // if (1 == ret) {
-    //     return NULL;
-    // }
-    // snprintf(bar_label, MAX_LABEL_LEN, "Threads %d", block_info.index);
-    // // 连接服务器
-    // fd = ConnectServer(client_arg->addr);
-    // if (fd < 0) {
-    //     return NULL;
-    // }
-    // // 发送下载报文
-    // request_buf.type = NET_PROTOCOL_GET;
-    // request_buf.cmd = GET_MODE_DOWNLOAD;
-    // ret = Send(fd, &request_buf, sizeof(RequestBuf));
-    // if (0 != ret) {
-    //     log_error("Query buf send failed.");
-    //     close(fd);
-    //     return NULL;
-    // }
-    // // 发送下载文件名 TODO: 需要增加可选的下载路径选项
-    // ret = WriteLine(fd, client_arg->file, MAX_FILE_NAME_LENGTH);
-    // if (ret <= 0) {
-    //     return NULL;
-    // }
-    // // 发送下载信息
-    // ret = Send(fd, &block_info, sizeof(DownloadBlockInfo));
+    // 获取下载数据
+    block_info.index = client_arg->index;
+    ret = ReadConfigDownloadInfo(config_file, &block_info);
+    if (1 == ret) {
+        return NULL;
+    }
+    snprintf(bar_label, MAX_LABEL_LEN, "Threads %d", block_info.index);
+    // 连接服务器
+    fd = ConnectServer(client_arg->addr);
+    if (fd < 0) {
+        return NULL;
+    }
+    // 发送下载报文
+    request_buf.type = NET_PROTOCOL_GET;
+    request_buf.cmd = GET_MODE_DOWNLOAD;
+    ret = Send(fd, &request_buf, sizeof(RequestBuf));
+    if (0 != ret) {
+        log_error("Query buf send failed.");
+        close(fd);
+        return NULL;
+    }
+    // 发送下载文件名 TODO: 需要增加可选的下载路径选项
+    ret = WriteLine(fd, client_arg->file, MAX_FILE_NAME_LENGTH);
+    if (ret <= 0) {
+        return NULL;
+    }
+    // 发送下载信息
+    ret = Send(fd, &block_info, sizeof(DownloadBlockInfo));
 
-    // // 接收回复报文
-    // ret = Receive(fd, &reply_buf, sizeof(ReplyBuf));
-    // if (0 != ret) {
-    //     log_error("Receive the query reply buf failed.");
-    //     close(fd);
-    //     return NULL;
-    // }
-    // if (NET_PROTOCOL_GET != reply_buf.type) {
-    //     log_error("Receive reply buf's type is incorrect.");
-    //     close(fd);
-    //     return NULL;
-    // }
-    // if (REQUEST_OK != reply_buf.status_code) {
-    //     log_error("Occur an error. Reply status code: %d", reply_buf.status_code);
-    //     close(fd);
-    //     return NULL;
-    // }
-    // // 接收数据
-    // progressbar* bar = progressbar_new(bar_label, block_info.len);
-    // progressbar_inc(bar);
-    // while (0 != block_info.len) {
-    //     temp_head = block_info.head;
-    //     if (block_info.len < SINGLE_TRANSMISSION_LEN) {
-    //         once_recv_byte = block_info.len;
-    //     }
-    //     else {
-    //         once_recv_byte = SINGLE_TRANSMISSION_LEN;
-    //     }   
-    //     ret = Receive(fd, recv_buf, once_recv_byte);
-    //     if (0 != ret) {
-    //         log_error("Occur an error during downloading.");
-    //         close(fd);
-    //         return NULL;
-    //     }
-    //     ret = WriteData(client_arg->file, client_arg->index, recv_buf, once_recv_byte);
-    //     if (0 != ret) {
-    //         log_error("Fail to write the download data into disk.");
-    //         progressbar_free(bar);
-    //         close(fd);
-    //         return NULL;
-    //     }
+    // 接收回复报文
+    ret = Receive(fd, &reply_buf, sizeof(ReplyBuf));
+    if (0 != ret) {
+        log_error("Receive the query reply buf failed.");
+        close(fd);
+        return NULL;
+    }
+    if (NET_PROTOCOL_GET != reply_buf.type) {
+        log_error("Receive reply buf's type is incorrect.");
+        close(fd);
+        return NULL;
+    }
+    if (REQUEST_OK != reply_buf.status_code) {
+        log_error("Occur an error. Reply status code: %d", reply_buf.status_code);
+        close(fd);
+        return NULL;
+    }
+    // 接收数据
+    progressbar* bar = progressbar_new(bar_label, block_info.len);
+    progressbar_inc(bar);
+    recv_buf = (char*)malloc(sizeof(char) * SINGLE_TRANSMISSION_LEN);
+    start_head = block_info.head;
+    while (0 != block_info.len) {
+        recv_buf = memset(recv_buf, 0, sizeof(char) * SINGLE_TRANSMISSION_LEN);
+        if (block_info.len < SINGLE_TRANSMISSION_LEN) {
+            once_recv_byte = block_info.len;
+        }
+        else {
+            once_recv_byte = SINGLE_TRANSMISSION_LEN;
+        }   
+        ret = Receive(fd, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Occur an error during downloading.");
+            close(fd);
+            progressbar_free(bar);
+            free(recv_buf);
+            return NULL;
+        }
+        signal(SIGINT, SIG_IGN);
+        ret = WriteData(client_arg->file, client_arg->index, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Fail to write the download data into disk.");
+            progressbar_free(bar);
+            free(recv_buf);
+            close(fd);
+            signal(SIGINT, SIG_DFL);
+            return NULL;
+        }
 
-    //     block_info.head = block_info.head + once_recv_byte;
-    //     block_info.len = block_info.len - once_recv_byte;
-    //     ret = WriteConfigDownloadInfo(config_file, &block_info);
-    //     if (0 != ret) {
-    //         log_error("Fail to write the download config into disk.");
-    //         progressbar_free(bar);
-    //         close(fd);
-    //         return NULL;
-    //     }
-
-    //     progressbar_update(bar, temp_head - block_info.head);
-    // }
-    // progressbar_free(bar);
-    // printf("%s downloading successful.\n", bar_label);
-    log_debug("test downloadFile func.");
+        block_info.head = block_info.head + once_recv_byte;
+        block_info.len = block_info.len - once_recv_byte;
+        ret = WriteConfigDownloadInfo(config_file, &block_info);
+        signal(SIGINT, SIG_DFL);
+        if (0 != ret) {
+            log_error("Fail to write the download config into disk.");
+            progressbar_free(bar);
+            free(recv_buf);
+            close(fd);
+            return NULL;
+        }
+        progressbar_update(bar, block_info.head - start_head);
+    }
+    progressbar_free(bar);
+    free(recv_buf);
+    printf("%s downloading successful.\n", bar_label);
     return NULL;
 }

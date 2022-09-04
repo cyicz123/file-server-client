@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-03 11:02:12
+ * @LastEditTime: 2022-09-04 15:26:57
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -56,6 +56,14 @@ FILE* WriteFile(const char* file_path);
  * @return {int} 0 成功 1 失败
  */
 int InitConfig(const char* file, DownloadFileInfo* file_info);
+
+/**
+ * @description: 读取配置文件的文件信息
+ * @param {char*} file 配置文件名
+ * @param {DownloadFileInfo*} file_info 配置文件参数
+ * @return {int} 0 成功 1 失败
+ */
+int ReadConfigFileInfo(const char* file, DownloadFileInfo* file_info);
 
 /**
  * @description: 根据block_info中的index在配置文件file中读取下载信息
