@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 15:51:59
+ * @LastEditTime: 2022-09-05 19:58:09
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -179,7 +179,7 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
     // 接收文件名
     ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
     if (ret < 0) {
-        log_error("Receive the file name failed during handing the query about file size.");
+        log_error("Receive the file name failed during handing the download about file name.");
         return INTERNAL_SERVER_ERROR;
     }
     // 接收下载信息
@@ -245,6 +245,73 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf){
 
 
 uint16_t handlePost(thread_arg_server* arg, RequestBuf* request_buf){
+    uint16_t ret = 0;
+    if (POST_MODE_UPLOAD == request_buf->cmd) {
+        ret = handlePostUpload(arg, request_buf);
+    }
+    return ret;
+}
+
+uint16_t handlePostUpload(thread_arg_server* arg, RequestBuf* request_buf){
+    ReplyBuf reply_buf;
+    DownloadBlockInfo upload_info;
+    char dir_path[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    char file_name[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char upload_file[2 * MAX_FILE_NAME_LENGTH] = {'\0'};
+    char* recv_buf = NULL;
+    int ret = -1;
+    uint64_t once_recv_byte = 0;
+
+    ret = ExistFile(dir_path);
+    if (false == ret) {
+        return NOT_FOUND;
+    }
+    // 接收文件名
+    ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
+    if (ret < 0) {
+        log_error("Receive the file name failed during handing the query about file size.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    Combine(upload_file, dir_path, file_name);
+    // 接收上传信息
+    ret = Receive(arg->fd, &upload_info, sizeof(DownloadBlockInfo));
+    if (0 != ret) {
+        return INTERNAL_SERVER_ERROR;
+    }
+    // 回复成功请求报文
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (0 != ret) {
+        return INTERNAL_SERVER_ERROR;
+    }
+
+
+    recv_buf = (char*)malloc(SINGLE_TRANSMISSION_LEN);
+    while (0 != upload_info.len) {
+        recv_buf = memset(recv_buf, 0, sizeof(char) * SINGLE_TRANSMISSION_LEN);
+        if (upload_info.len < SINGLE_TRANSMISSION_LEN) {
+            once_recv_byte = upload_info.len;
+        }
+        else {
+            once_recv_byte = SINGLE_TRANSMISSION_LEN;
+        }   
+        ret = Receive(arg->fd, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Occur an error during uploading.");
+            free(recv_buf);
+            return INTERNAL_SERVER_ERROR;
+        }
+        ret = WriteData(upload_file, upload_info.index, recv_buf, once_recv_byte);
+        if (0 != ret) {
+            log_error("Fail to write the upload data into disk.");
+            free(recv_buf);
+            return INTERNAL_SERVER_ERROR;
+        }
+
+        upload_info.head = upload_info.head + once_recv_byte;
+        upload_info.len = upload_info.len - once_recv_byte;
+    }
     return 0;
 }
 
@@ -378,6 +445,60 @@ uint16_t handleQueryFileSize(thread_arg_server* arg, RequestBuf* request_buf){
 }
 
 uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf){
+    uint16_t ret = 0;
+    if (COMMAND_MODE_MERGE_FILE == request_buf->cmd) {
+        ret = handleCommandMergeFile(arg, request_buf);
+    }
+    return ret;
+}
+
+uint16_t handleCommandMergeFile(thread_arg_server* arg, RequestBuf* request_buf){
+    char dir_path[MAX_FILE_NAME_LENGTH] = SERVER_STORAGE_FILE;
+    char file_name[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char file_path[MAX_FILE_NAME_LENGTH + MAX_FILE_NAME_LENGTH] = {'\0'}; // 两倍，防止拼接溢出
+    char block_file[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char block_path[2 * MAX_FILE_NAME_LENGTH] = {'\0'};
+    int ret = -1;
+    ReplyBuf reply_buf;
+    FILE* write_fd;
+    DownloadFileInfo file_info;
+    
+    
+    ret = ExistFile(dir_path);
+    if (false == ret) {
+        return NOT_FOUND;
+    }
+
+    ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
+    if (ret < 0) {
+        log_error("Receive the file name failed during handing the command about merging file.");
+        return INTERNAL_SERVER_ERROR;
+    }
+    ret = Receive(arg->fd, &file_info, sizeof(DownloadFileInfo));
+    if (0 != ret) {
+        log_error("Receive the file info failed during handing the command about merging file.");
+        return INTERNAL_SERVER_ERROR;
+    }
+
+    Combine(file_path, dir_path, file_name);
+    write_fd = fopen(file_path, "wb");
+    for (size_t i=0; i<file_info.block_num; i++) {
+        memset(block_file, 0, MAX_FILE_NAME_LENGTH);
+        memset(block_path, 0, 2 * MAX_FILE_NAME_LENGTH);
+        BlockNameGen(block_file, file_name, i, MAX_FILE_NAME_LENGTH);
+        Combine(block_path, dir_path, block_file);
+        MergeFile(write_fd, block_path);
+        remove(block_path);
+    }
+    fclose(write_fd);
+    
+    reply_buf.type = request_buf->type;
+    reply_buf.status_code = REQUEST_OK;
+    ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
+    if (ret < 0) {
+        log_error("Send reply buf error.");
+        return INTERNAL_SERVER_ERROR;
+    }
     return 0;
 }
 

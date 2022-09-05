@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:43
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-02 16:53:25
+ * @LastEditTime: 2022-09-05 15:46:10
  * @FilePath: /tcp-server/thread/thread.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -47,7 +47,7 @@ uint16_t handleGet(thread_arg_server* arg, RequestBuf* request_buf);
  * @description: 处理下载
  * @param {thread_arg_server*} arg
  * @param {RequestBuf*} request_buf
- * @return {*}
+ * @return {uint16_t} 0 成功 非零为错误码
  */
 uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf);
 
@@ -56,6 +56,14 @@ uint16_t handleGetDownload(thread_arg_server* arg, RequestBuf* request_buf);
  * @return {uint16_t} 0 成功 非零为错误码
  */
 uint16_t handlePost(thread_arg_server* arg, RequestBuf* request_buf);
+
+/**
+ * @description: 处理上传
+ * @param {thread_arg_server*} arg
+ * @param {RequestBuf*} request_buf
+ * @return {uint16_t} 0 成功 非零为错误码
+ */
+uint16_t handlePostUpload(thread_arg_server* arg, RequestBuf* request_buf);
 
 /**
  * @description: 处理Delete报文
@@ -74,6 +82,8 @@ uint16_t handleQuery(thread_arg_server* arg, RequestBuf* request_buf);
  * @return {uint16_t} 0 成功 非零为错误码
  */
 uint16_t handleCommand(thread_arg_server* arg, RequestBuf* request_buf);
+
+uint16_t handleCommandMergeFile(thread_arg_server* arg, RequestBuf* request_buf);
 
 /**
  * @description: 处理Query报文中的查询文件列表功能

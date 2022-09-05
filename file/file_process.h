@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:22
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 15:26:57
+ * @LastEditTime: 2022-09-05 16:25:58
  * @FilePath: /tcp-server/file/file_process.h
  * @Description: 对文件打开，分割，合并处理
  */
@@ -43,7 +43,7 @@ typedef struct DownloadFileInfo{
 FILE* ReadFile(const char* file_path);
 
 /**
- * @description: 以ab模式打开文件
+ * @description: 以ab+模式打开文件
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
@@ -120,7 +120,7 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  * @param {uint32_t} length 数组长度
  * @return {int} 0 成功 1 失败
  */
-int WriteData(const char* prefix, const uint8_t index, const char* buf, const uint64_t length);
+int WriteData(char* prefix, const uint8_t index, const char* buf, const uint64_t length);
 
 /**
  * @description: 打开路径为path的小文件，写入fd末尾。

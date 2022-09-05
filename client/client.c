@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:13
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 16:43:56
+ * @LastEditTime: 2022-09-05 20:22:53
  * @FilePath: /tcp-server/client/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -14,8 +14,9 @@
 #include "../file/file_process.h"
 #include "../progressbar/progressbar.h"
 #include "../progressbar/statusbar.h"
-#include <signal.h>
 
+#include <signal.h>
+#include <libgen.h>
 
 
 static struct option long_options[] = {
@@ -119,8 +120,7 @@ int StartClient(int argc, char* argv[]){
 			break;
 		}
 	}
-	// log_info("[Server IP: %s, Port: %d]", inet_ntoa(ser_addr.sin_addr), ntohs(ser_addr.sin_port));
-	// log_info("[Client IP: %s, Port: %d]", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+	
 
     if (1 == query_files_flag) {
         ret = QueryFiles(&ser_addr, storage_dir);
@@ -131,7 +131,11 @@ int StartClient(int argc, char* argv[]){
         return 0;
     }
 	if (NULL != upload_file) {
-		printf("upload_file: %s\n", upload_file);
+        ret = UploadFile(&ser_addr, upload_file);
+        if (0 != ret) {
+            log_error("Upload failed.");
+            return -1;
+        }
 		return 0;
 	}
 	if (NULL != download_file) {
@@ -351,6 +355,7 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
     char* path = (NULL == storage_file) ? HERE : storage_file; // 为空则存放在同级目录下
     char download_config_file[MAX_FILE_NAME_LENGTH] = {'\0'};
     char start_path[MAX_FILE_NAME_LENGTH] = {'\0'};
+    char block_file[MAX_FILE_NAME_LENGTH] = {'\0'};
     int ret = -1;
     DownloadBlockInfo block_info;
     DownloadFileInfo file_info;
@@ -412,26 +417,19 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file){
     }
     if (1 == CheckDownloadStatus(download_config_file)) {
         // 合并数据包
-        write_fd = WriteFile(file);
-        statusbar *status_bar = statusbar_new("Merging the download file. Please do not interrupt the program");
+        write_fd = fopen(file, "wb");
+        progressbar* bar = progressbar_new("Merging the file", file_info.block_num);
+        signal(SIGINT, SIG_IGN);
         for (size_t i=0; i<file_info.block_num; i++) {
-            statusbar_inc(status_bar);
+            progressbar_inc(bar);
             // 合并小数据包
-            int index_s_length = GetIntDigit(i) + 1;
-            char* index_s = (char*)malloc(index_s_length * sizeof(char));
-            Uint32ToStr(index_s, index_s_length, i);
-            
-            size_t path_length = (strlen(file) + strlen(index_s) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
-            char* data_path = (char*)malloc(path_length * sizeof(char));
+            BlockNameGen(block_file, file, i, MAX_FILE_NAME_LENGTH);
 
-            snprintf(data_path, path_length * sizeof(char), ".%s-%s", file, index_s);
-            free(index_s);
-
-            MergeFile(write_fd, data_path);
-            remove(data_path);
-            free(data_path);
+            MergeFile(write_fd, block_file);
+            remove(block_file);
         }
-        statusbar_finish(status_bar);
+        signal(SIGINT, SIG_DFL);
+        progressbar_finish(bar);
         fclose(write_fd);
         remove(download_config_file);
     }
@@ -563,8 +561,300 @@ void* dowloadFile(void* arg){
         }
         progressbar_update(bar, block_info.head - start_head);
     }
+    close(fd);
     progressbar_free(bar);
     free(recv_buf);
     printf("%s downloading successful.\n", bar_label);
     return NULL;
+}
+
+int UploadFile(struct sockaddr_in* ser_addr, char* file){
+    // 声明
+    DownloadFileInfo file_info;
+    DownloadBlockInfo block_info;
+    int ret = -1;
+    char upload_config_file[MAX_FILE_NAME_LENGTH] = {0};
+    char* base_file = NULL;
+    bool exist_config_file_flag = false;
+
+    // 初始化
+    memset(&block_info, 0, sizeof(DownloadBlockInfo));
+    memset(&file_info, 0, sizeof(DownloadFileInfo));
+
+    // 条件检查
+    if (NULL == file) {
+        log_error("Transmit the file is NULL.");
+        return 1;
+    }
+    if (0 == ExistFile(file)) {
+        log_error("The file doesn't exist in the path:%s.", file);
+        return 1;
+    }
+
+    base_file = basename(file);
+    ConfigNameGen(upload_config_file, base_file, MAX_FILE_NAME_LENGTH);
+    exist_config_file_flag = ExistFile(upload_config_file);
+
+
+    // 初始化上传
+    if (false == exist_config_file_flag) {
+        file_info.block_num = CLIENT_UPLOADS_THREADS_NUM;
+        file_info.file_size = GetFileSize(file);
+        if (0 == file_info.file_size) {
+            log_error("Occur an error in getting file size.");
+            return 1;
+        }
+        ret = InitConfig(upload_config_file, &file_info);
+        if (1 == ret) {
+            log_error("Set config failed.");
+            return 1;
+        }
+    }
+    else {
+        ret = ReadConfigFileInfo(upload_config_file, &file_info);
+        if (0 != ret) {
+            return 1;
+        }
+    }
+    // 上传
+    ClientThreadArg args[CLIENT_DOWNLOADS_THREADS_NUM];
+    for (size_t i=0; i<file_info.block_num; i++) {
+        args[i].file = file;
+        args[i].addr = ser_addr;
+        args[i].index = i;
+        pthread_create(&args[i].tid, NULL, uploadFile, &args[i]);
+    }
+    for (size_t i=0; i<file_info.block_num; i++) {
+        pthread_join(args[i].tid, NULL);
+    }
+    if (1 == CheckDownloadStatus(upload_config_file)) {
+        // 合并数据包
+        ret = CommandServerMergeFile(ser_addr, base_file);
+        if (0 != ret) {
+            log_error("Server merge the file failed.");
+            return 1;
+        }
+        remove(upload_config_file);
+    }
+    return 0;
+}
+
+void* uploadFile(void* arg){
+    ClientThreadArg* client_arg = (ClientThreadArg*)arg;
+    DownloadBlockInfo block_info;
+    RequestBuf request_buf;
+    ReplyBuf reply_buf;
+    uint64_t start_head = 0;
+    uint64_t once_send_byte = 0;
+    FILE* read_fd;
+    char config_file[MAX_FILE_NAME_LENGTH] = {0};
+    char* base_name;
+    int ret = -1;
+    int fd = -1;
+    char* send_buf = NULL;
+    char bar_label[MAX_LABEL_LEN] = {0};
+
+    // 条件检查
+    if (NULL == client_arg) {
+        log_error("Argument is NULL.");
+        return NULL;
+    }
+    if (NULL == client_arg->addr) {
+        log_error("Address is NULL.");
+        return NULL;
+    }
+    if (NULL == client_arg->file) {
+        log_error("File is NULL.");
+        return NULL;
+    }
+   
+    base_name = basename(client_arg->file);
+    ConfigNameGen(config_file, base_name, MAX_FILE_NAME_LENGTH);
+    if (0 == ExistFile(config_file)) {
+        log_error("Config file doesn't exist.");
+        return NULL;
+    }
+
+    // 获取上传数据
+    block_info.index = client_arg->index;
+    ret = ReadConfigDownloadInfo(config_file, &block_info);
+    if (1 == ret) {
+        return NULL;
+    }
+    snprintf(bar_label, MAX_LABEL_LEN, "Threads %d", block_info.index);
+    // 连接服务器
+    fd = ConnectServer(client_arg->addr);
+    if (fd < 0) {
+        return NULL;
+    }
+    // 发送上传报文
+    request_buf.type = NET_PROTOCOL_POST;
+    request_buf.cmd = POST_MODE_UPLOAD;
+    ret = Send(fd, &request_buf, sizeof(RequestBuf));
+    if (0 != ret) {
+        log_error("Query buf send failed.");
+        close(fd);
+        return NULL;
+    }
+    // 发送上传文件名 TODO: 需要增加可选的下载路径选项
+    ret = WriteLine(fd, base_name, MAX_FILE_NAME_LENGTH);
+    if (ret <= 0) {
+        return NULL;
+    }
+    // 发送上传信息
+    ret = Send(fd, &block_info, sizeof(DownloadBlockInfo));
+
+    // 接收回复报文
+    ret = Receive(fd, &reply_buf, sizeof(ReplyBuf));
+    if (0 != ret) {
+        log_error("Receive the query reply buf failed.");
+        close(fd);
+        return NULL;
+    }
+    if (NET_PROTOCOL_POST != reply_buf.type) {
+        log_error("Receive reply buf's type is incorrect.");
+        close(fd);
+        return NULL;
+    }
+    if (REQUEST_OK != reply_buf.status_code) {
+        log_error("Occur an error. Reply status code: %d", reply_buf.status_code);
+        close(fd);
+        return NULL;
+    }
+    // 上传数据
+    progressbar* bar = progressbar_new(bar_label, block_info.len);
+    progressbar_inc(bar);
+    read_fd = ReadFile(client_arg->file);
+    send_buf = (char*)malloc(sizeof(char) * SINGLE_TRANSMISSION_LEN);
+    start_head = block_info.head;
+    while (0 != block_info.len) {
+        send_buf = memset(send_buf, 0, sizeof(char) * SINGLE_TRANSMISSION_LEN);
+        if (block_info.len < SINGLE_TRANSMISSION_LEN) {
+            once_send_byte = block_info.len;
+        }
+        else {
+            once_send_byte = SINGLE_TRANSMISSION_LEN;
+        }   
+        ret = fseeko(read_fd, block_info.head, SEEK_SET);
+        if (ret < 0) {
+            log_error("Can't read the data.");
+            CloseFile(read_fd);
+            close(fd);
+            free(send_buf);
+            progressbar_free(bar);
+            return NULL; 
+        }
+        ret = fread(send_buf, 1, once_send_byte, read_fd);
+        if (once_send_byte != ret) {
+            log_error("Can't read the data.");
+            free(send_buf);
+            CloseFile(read_fd);
+            close(fd);
+            progressbar_free(bar);
+            return NULL;
+        }
+        signal(SIGINT, SIG_IGN);
+        ret = Send(fd, send_buf, once_send_byte);
+        if (0 != ret) {
+            log_error("Occur an error during uploading.");
+            CloseFile(read_fd);
+            close(fd);
+            progressbar_free(bar);
+            free(send_buf);
+            return NULL;
+        }
+        block_info.head = block_info.head + once_send_byte;
+        block_info.len = block_info.len - once_send_byte;
+        ret = WriteConfigDownloadInfo(config_file, &block_info);
+        signal(SIGINT, SIG_DFL);
+        if (0 != ret) {
+            log_error("Fail to write the download config into disk.");
+            progressbar_free(bar);
+            free(send_buf);
+            CloseFile(read_fd);
+            close(fd);
+            return NULL;
+        }
+        progressbar_update(bar, block_info.head - start_head);
+    }
+    close(fd);
+    CloseFile(read_fd);
+    progressbar_free(bar);
+    free(send_buf);
+    printf("\n%s uploading successful.\n", bar_label);
+    return NULL;
+}
+
+int CommandServerMergeFile(struct sockaddr_in* ser_addr, char* file){
+    RequestBuf request_buf;
+    ReplyBuf reply_buf;
+    DownloadFileInfo file_info;
+    char upload_config_file[MAX_FILE_NAME_LENGTH] = {'\0'};
+    int ret = -1;
+    int fd = -1;
+
+    if (NULL == file) {
+        log_error("File is NULL.");
+        return 1;
+    }
+    // 读取同级目录下配置文件
+    ConfigNameGen(upload_config_file, file, MAX_FILE_NAME_LENGTH);
+    if (0 == ExistFile(upload_config_file)) {
+        log_error("Config file doesn't exist.");
+        return 1;
+    }
+    ret = ReadConfigFileInfo(upload_config_file, &file_info);
+    if (0 != ret) {
+        log_error("Read file info failed.");
+        return 1;
+    }
+    // 连接服务器
+    fd = ConnectServer(ser_addr);
+    if (fd < 0) {
+        log_error("Connect the server failed.");
+        return 1;
+    }
+    // 发送命令报文
+    request_buf.type = NET_PROTOCOL_COMMAND;
+    request_buf.cmd = COMMAND_MODE_MERGE_FILE;
+    ret = Send(fd, &request_buf, sizeof(RequestBuf));
+    if (0 != ret) {
+        log_error("Command buf send failed.");
+        close(fd);
+        return 1;
+    }
+    // 发送合并文件名
+    ret = WriteLine(fd, file, MAX_FILE_NAME_LENGTH);
+    if (ret < 0) {
+        log_error("Can't send the command buf.");
+        close(fd);
+        return 1;
+    }
+    // 发送合并文件信息
+    ret = Send(fd, &file_info, sizeof(DownloadFileInfo));
+    if (0 != ret) {
+        log_error("Send file info failed");
+        close(fd);
+        return 1;
+    }
+    // 接收结果
+    ret = Receive(fd, &reply_buf, sizeof(ReplyBuf));
+    if (0 != ret) {
+        log_error("Receive the command reply buf failed.");
+        close(fd);
+        return 1;
+    }
+    if (NET_PROTOCOL_COMMAND != reply_buf.type) {
+        log_error("Receive reply buf's type is incorrect.");
+        close(fd);
+        return 1;
+    }
+    if (REQUEST_OK != reply_buf.status_code) {
+        log_error("Occur an error. Reply status code: %d", reply_buf.status_code);
+        close(fd);
+        return 1;
+    }
+    
+    close(fd);
+    return 0;
 }

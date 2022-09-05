@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-03 10:36:06
+ * @LastEditTime: 2022-09-05 10:35:14
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -56,11 +56,22 @@ int Str2Addr(const char* str_addr, struct sockaddr_in* addr);
 
 /**
  * @description: 生成配置文件名
+ * @param {char*} config_file 生成的配置文件名
  * @param {char*} file 配置文件名
- * @param {int} max_len 最大长度
+ * @param {int} max_len config_file的最大长度
  * @return {*} 0 成功 1 失败
  */
 int ConfigNameGen(char* config_file, const char* file, int max_len);
+
+/**
+ * @description: 生成分块文件名
+ * @param {char*} block_file 生成的分块文件名
+ * @param {char*} file 文件名
+ * @param {uint8_t} index 分块序号
+ * @param {int} max_len block_file的最大长度
+ * @return {int} 0 成功 1 失败
+ */
+int BlockNameGen(char* block_file, const char* file, uint8_t index, int max_len);
 
 /**
  * @description: 将path1和path2拼接成dest

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:20
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 09:29:40
+ * @LastEditTime: 2022-09-04 20:17:51
  * @FilePath: /tcp-server/client/client.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%Av
  */
@@ -83,4 +83,25 @@ int DownloadFile(struct sockaddr_in* ser_addr, char* file, char* storage_file);
  */
 void* dowloadFile(void* arg);
 
-int UploadFile();
+/**
+ * @description: 上传服务器文件
+ * @param {sockaddr_in*} ser_addr 服务器地址
+ * @param {char*} file 文件名
+ * @return {*} 0 成功 1 失败 -1 中断
+ */
+int UploadFile(struct sockaddr_in* ser_addr, char* file);
+
+/**
+ * @description: 根据参数上传服务器对应内容
+ * @param {void*} (ClientThreadArg*)arg 上传所需的一些参数
+ * @return {*}
+ */
+void* uploadFile(void* arg);
+
+/**
+ * @description: 命令服务器合并文件
+ * @param {sockaddr_in*} ser_addr 服务器地址
+ * @param {char*} file 合并后的文件名
+ * @return {int} 0 成功 1 失败
+ */
+int CommandServerMergeFile(struct sockaddr_in* ser_addr, char* file);

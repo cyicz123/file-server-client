@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-03 14:57:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 14:21:08
+ * @LastEditTime: 2022-09-05 15:40:19
  * @FilePath: /tcp-server/network/network.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-#define SINGLE_TRANSMISSION_LEN 1048576 // 1M的单次下载大小
+#define SINGLE_TRANSMISSION_LEN 10485760 // 10M的单次下载大小
 
 #define TYPE_GET 1
 #define TYPE_POST 2
@@ -41,6 +41,10 @@
 
 #define GET_MODE_DOWNLOAD 0
 #define GET_MODE_DOWNLOAD_WITH_PATH 1
+
+#define POST_MODE_UPLOAD 0
+
+#define COMMAND_MODE_MERGE_FILE 0
 
 
 /**

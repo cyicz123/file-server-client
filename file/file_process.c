@@ -2,12 +2,13 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-04 16:22:15
+ * @LastEditTime: 2022-09-05 19:04:15
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
 #ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#include <libgen.h>
 #endif
 
 #ifndef _FILE_OFFSET_BITS
@@ -29,7 +30,7 @@
 #include <math.h>
 #include <errno.h>
 
-#define MERGE_FILE_READ_BUF_SIZE 1024
+#define MERGE_FILE_READ_BUF_SIZE 10240
 
 
 /**
@@ -52,14 +53,14 @@ FILE* ReadFile(const char* file_path)
 }
 
 /**
- * @description: 以ab模式打开文件
+ * @description: 以ab+模式打开文件
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
 FILE* WriteFile(const char* file_path)
 {
     FILE* fd = NULL;
-    fd = fopen(file_path, "ab");
+    fd = fopen(file_path, "ab+");
     if (fd == NULL)
     {
         log_error("Can't open the file.");
@@ -399,39 +400,37 @@ uint32_t ReadData(FILE* fd,uint8_t* buf,const uint32_t length, const uint32_t in
  * @param {uint32_t} length 数组长度
  * @return {int} 0 成功 1 失败
  */
-int WriteData(const char* prefix, const uint8_t index, const char* buf, const uint64_t length)
+int WriteData(char* prefix, const uint8_t index, const char* buf, const uint64_t length)
 {
-    int s_index_length = GetIntDigit(index) + 1;
-    char* s_index = (char*)malloc(s_index_length * sizeof(char));
-    Uint32ToStr(s_index, s_index_length, index);
-    
-    size_t path_length = (strlen(prefix) + strlen(s_index) + 2 + 1 ) * sizeof(char); //2为.%s-%s中的固定字符数量
-    char* path = (char*)malloc(path_length * sizeof(char));
+    char prefix_path[2 * MAX_FILE_NAME_LENGTH] = {'\0'};
+    char path[MAX_FILE_NAME_LENGTH] = {0};
+    char block_name[MAX_FILE_NAME_LENGTH] = {0};
+    char* base_name = NULL;
+    char* dir_name = NULL;
 
-    snprintf(path, path_length * sizeof(char), ".%s-%s", prefix, s_index);
-    free(s_index);
+    strncpy(prefix_path, prefix, 2 * MAX_FILE_NAME_LENGTH);
+    base_name = basename(prefix_path);
+    dir_name = dirname(prefix_path);
+    BlockNameGen(block_name, base_name, index, MAX_FILE_NAME_LENGTH);
+    Combine(path, dir_name, block_name);
 
     FILE* file = fopen(path, "ab+");
 
     if(file == NULL)
     {
         log_error("Can't write %s", path);
-        free(path);
         return 1;
     }
 
-    // fseek(file, 0, SEEK_END);
     size_t count = 0;
     count=fwrite(buf, 1, length, file);
     if(count != length)
     {
         log_error("Failed to write data to %s. Expected %u bytes of data to be written, but only %lu was written.", path, length, count);
-        free(path);
         fclose(file);
         return 1;
     }
     
-    free(path);
     fclose(file);
     return 0;
 }
@@ -444,24 +443,33 @@ int WriteData(const char* prefix, const uint8_t index, const char* buf, const ui
  */
 int MergeFile(FILE* fd, const char* path)
 {
-    FILE* rd_fd = ReadFile(path);
+    FILE* rd_fd = fopen(path, "rb");
+    int read_buf_size = 0, write_buf_size = 0;
+    char buf[MERGE_FILE_READ_BUF_SIZE];
+    uint64_t file_size = 0;
     if (fd == NULL) 
     {
         return 1;
     }
-    int read_buf_size = 0, write_buf_size = 0;
-    uint8_t buf[MERGE_FILE_READ_BUF_SIZE];
-    while (!feof(rd_fd)) 
+    file_size = GetFileSize(path);
+    if (0 == file_size) {
+        log_error("The file size is zero.");
+        return 1;
+    }
+    while (0 != file_size) 
     {
-        read_buf_size = fread((uint8_t*)buf, 1, MERGE_FILE_READ_BUF_SIZE, rd_fd); 
-        write_buf_size = fwrite((uint8_t*)buf, 1, read_buf_size, fd);
+        memset(buf, 0, MERGE_FILE_READ_BUF_SIZE);
+        read_buf_size = fread(buf, 1, MERGE_FILE_READ_BUF_SIZE, rd_fd); 
+        write_buf_size = fwrite(buf, 1, read_buf_size, fd);
         if (write_buf_size != read_buf_size) 
         {
             log_error("The read and write operations are inconsistent.");
             CloseFile(rd_fd);
             return 1;
         } 
+        file_size = file_size - read_buf_size;
     }
+    fclose(rd_fd);
     return 0;
 }
 

@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-28 13:45:30
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-03 10:35:39
+ * @LastEditTime: 2022-09-05 10:38:26
  * @FilePath: /tcp-server/string/int2string.h
  * @Description: 字符串处理工具函数
  */
@@ -109,10 +109,21 @@ int Str2Addr(const char* str_addr, struct sockaddr_in* addr){
 }
 
 int ConfigNameGen(char* config_file, const char* file, int max_len){
+    if (NULL == config_file || NULL == file) {
+        return 1;
+    }
     snprintf(config_file, max_len, ".%s.bin", file);
     return 0;
 }
 
+int BlockNameGen(char* block_file, const char* file, uint8_t index, int max_len)
+{
+    if (NULL == block_file || NULL == file) {
+        return 1;
+    }
+    snprintf(block_file, max_len, ".%s-%d", file, index);
+    return 0;
+}
 
 void Combine(char* destination, const char* path1, const char* path2){
     if(path1 == NULL && path2 == NULL) {
