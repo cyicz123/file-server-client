@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:13
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-05 20:22:53
+ * @LastEditTime: 2022-09-17 15:55:21
  * @FilePath: /tcp-server/client/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -22,10 +22,9 @@
 static struct option long_options[] = {
 	{"help", no_argument, NULL, 'h'},
 	{"ser_addr", required_argument, NULL, 's'},
-	{"cli_addr", required_argument, NULL, 'c'},
 	{"ls", optional_argument, NULL, 'l'},
 	{"download", required_argument, NULL, 'd'},
-	{"delete", required_argument, NULL, 'D'},
+	// {"delete", required_argument, NULL, 'D'},
 	{"upload", required_argument, NULL, 'u'},
 	{"version", no_argument, NULL, 'v'}
 };
@@ -36,30 +35,21 @@ int StartClient(int argc, char* argv[]){
 	int option_index = 0;
 	int str2addrret = -1;
 	char* storage_dir = NULL;
-	char* delete_file = NULL;
+	// char* delete_file = NULL;
 	char* upload_file = NULL;
 	char* download_file = NULL;
 	struct sockaddr_in ser_addr;
-	struct sockaddr_in cli_addr;
     bool query_files_flag = 0;
     int ret = -1;
 
 	// 初始化
 	memset(&ser_addr, 0, sizeof(struct sockaddr_in));
-	memset(&cli_addr, 0, sizeof(struct sockaddr_in));
 	str2addrret = Str2Addr(CLIENT_DEFAULT_ADDR, &ser_addr);
 	if (1 == str2addrret) {
 		log_error("Set client address failed.");
 		return 1;
 	}
-	str2addrret = Str2Addr(CLIENT_DEFAULT_ADDR, &cli_addr);
-	if (1 == str2addrret) {
-		log_error("Set client address failed.");
-		return 1;
-	}
-
-
-	
+    // 处理命令行
 	while (true) {
 		opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &option_index);
 		if (-1 == opt) {
@@ -85,18 +75,6 @@ int StartClient(int argc, char* argv[]){
 				return 1;
 			}
 			break;
-		case 'c':
-			if (NULL != optarg) {
-				str2addrret = Str2Addr(optarg, &cli_addr);
-			}
-			else {
-				str2addrret = Str2Addr(CLIENT_DEFAULT_ADDR, &cli_addr);
-			}
-			if (1 == str2addrret) {
-				log_error("Set client address failed.");
-				return 1;
-			}
-			break;
 		case 'l':
 			if (NULL != optarg) {
 				storage_dir = optarg;
@@ -108,11 +86,11 @@ int StartClient(int argc, char* argv[]){
 				download_file = optarg;
 			}
 			break;
-		case 'D':
-			if (NULL != optarg) {
-				delete_file = optarg;
-			}
-			break;
+		// case 'D':
+		// 	if (NULL != optarg) {
+		// 		delete_file = optarg;
+		// 	}
+		// 	break;
 		case 'u':
 			if (NULL != optarg) {
 				upload_file = optarg;
@@ -146,10 +124,10 @@ int StartClient(int argc, char* argv[]){
         }
 		return 0;
 	}
-	if (NULL != delete_file) {
-		printf("delete_file: %s\n", delete_file);
-		return 0;
-	}
+	// if (NULL != delete_file) {
+	// 	printf("delete_file: %s\n", delete_file);
+	// 	return 0;
+	// }
     return 0;
 }
 
@@ -158,17 +136,13 @@ void helpInfo(char opt, const char* version){
 		printf("Hi-Hik version %s\n", version);
 		return;
 	}
-	printf("Usage: Hi-Hik [OPTION]... [FILE]...\n");
+	printf("Usage: file-client [OPTION]... [FILE]...\n");
 	printf("A file transfer tool, support upload and download.\n");
 	printf("\n");
 	printf("Mandatory arguments to long options are mandatory for short options too.\n");
 	switch (opt) {
 	case 's':
 		printf("\t-s, --ser_addr IP:Port\t\t\tSet the server address to IP :port. The default address is 127.0.0.1:8080.\n");
-		break;
-	case 'c':
-		printf("\t-c, --cli_addr IP:Port\t\t\tSet the client address to IP :port. The default address is 127.0.0.1:8080. \
-			If both client servers are enabled in the same address, the port number is automatically incremented.\n");
 		break;
 	case 'l':
 		printf("\t-l, --ls [FILE-DIRECTORY]\t\t\tView remote server downloadable files.\n");
@@ -184,10 +158,9 @@ void helpInfo(char opt, const char* version){
 		break;
 	default:
 		printf("\t-s, --ser_addr IP:Port\t\t\tSet the server address to IP :port. The default address is 127.0.0.1:8080.\n");
-		printf("\t-c, --cli_addr IP:Port\t\t\tSet the client address to IP :port. The default address is 127.0.0.1:8080. If both client servers are enabled in the same address, the port number is automatically incremented.\n");
 		printf("\t-l, --ls [FILE-DIRECTORY]\t\t\tView remote server downloadable files.\n");
 		printf("\t-d, --download FILE\t\t\tDownload the file.\n");
-		printf("\t-D, --delete FILE\t\t\tDelete the file.\n");
+		// printf("\t-D, --delete FILE\t\t\tDelete the file.\n");
 		printf("\t-u, --upload FILE\t\t\tUpload the file.\n");
 		printf("\n");
 		printf("\t-h, --help\t\t\tPrint the help info.\n");

@@ -57,3 +57,4 @@ build
 *test*
 *.iso
 ubuntu*
+bin/

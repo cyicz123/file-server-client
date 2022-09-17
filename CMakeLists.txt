@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(tcp-server VERSION 0.1.0)
 
-SET(CMAKE_BUILD_TYPE "DEBUG") 
+SET(CMAKE_BUILD_TYPE "RELEASE") 
 SET(CMAKE_C_FLAGS_DEBUG "$ENV{CFLAGS} -O0 -Wall -g -ggdb")
 SET(CMAKE_C_FLAGS_RELEASE "$ENV{CFLAGS} -O3 -Wall")
+SET(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 
 set(CURSES_NEED_NCURSES TRUE)
 find_package(Curses)
@@ -22,7 +23,7 @@ add_subdirectory(progressbar)
 
 add_executable(cli client.c)
 add_executable(ser server.c)
-add_executable(test test.c)
+INSTALL(TARGETS ser cli DESTINATION bin)
 
 target_link_libraries(cli log)
 target_link_libraries(cli clientLib)

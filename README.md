@@ -1,62 +1,75 @@
 # 文件服务器/客户端
 ## 一、概要
-个人学习tcp socket网络编程demo。基于Linux socket接口和redis数据库实现了多客户端上传、支持不超过4GB的大文件传输和断点续传。
+个人学习tcp socket网络编程demo。基于Linux socket接口实现了多客户端上传下载、大文件传输和断点续传。
 ## 二、环境搭建
-### 2.1 依赖
-**1. redis**
-
-需要安装redis数据库，并且设置端口号为默认的6379，不设置密码。
-
-**建议:** 通过docker安装。
-~~~ bash
-docker run -dit --name redis --restart always -p 6379:6379 redis
-~~~
-
-**2. hiredis C语言redis客户端库**
-~~~ bash
-git clone https://github.com/redis/hiredis.git
-cd redis
-make
-sudo make install
-~~~
-
-**3. 安装cmake**
+### 1. 安装cmake
 ~~~ bash
 sudo apt install cmake
 cmake -v
 ~~~
-
-### 2.2 安装
+### 2. 安装ncurses
+~~~bash
+sudo apt-get install libncurses5-dev
+~~~
+### 3. 编译
 ~~~ bash
 git clone https://github.com/cyicz123/file-server-client.git
+cd file-server-client
 mkdir build && cd build
 cmake ..
 make
+sudo make install
 ~~~
+在项目根目录就会生成bin文件夹，内部存放在ser和cli的服务端、客户端程序。
 ## 三、功能展示
-### 启动服务端
-![启动服务端](https://image.cyicz123.top/i/2022/08/11/gsyx3b.png)
-### 传输大文件
-生成9G大小测试文件
-~~~ bash
-dd if=/dev/zero of=test_data_9G bs=1G count=9
+## 3.1 启动服务端
+![服务端启动](https://cdn.jsdelivr.net/gh/cyicz123/Picture@main/img/202209171551149.png)
+## 3.2 客户端使用
+**1. 帮助信息**
+~~~bash
+./cli -h # 或者 ./cli --help
+# 打印输出
+Usage: file-client [OPTION]... [FILE]...
+A file transfer tool, support upload and download.
+
+Mandatory arguments to long options are mandatory for short options too.
+        -s, --ser_addr IP:Port                  Set the server address to IP :port. The default address is 127.0.0.1:8080.
+        -l, --ls [FILE-DIRECTORY]                       View remote server downloadable files.
+        -d, --download FILE                     Download the file.
+        -u, --upload FILE                       Upload the file.
+
+        -h, --help                      Print the help info.
+        -v, --version                   Print the version.
 ~~~
-启动客户端，传输9GB文件
+**2. 测试上传**
+
+生成10G大小测试文件
 ~~~ bash
-./client ../test/test_data_9G
-# 输出结果，不支持传输超过4GB文件(可在代码中修改)
-The file is larger than 4GB.
+dd if=/dev/zero of=test_data_10G bs=1G count=10
 ~~~
-传输4GB文件
+
 ~~~ bash
-./client ../test/test_data_4G
+./cli -u test_data_10G
 ~~~
-![运行客户端](https://image.cyicz123.top/i/2022/08/11/gyi4n3.png)
-客户端将文件分成1MB大小块传输
-### 断点续传
-按`ctrl c`取消传输后，重新执行命令即可断点续传
-![断点续传](https://image.cyicz123.top/i/2022/08/11/h0n5j2.png)
-可见重新执行传输命令后，从中断位置开始发送数据。
-### 传输成功
-![传输成功](https://image.cyicz123.top/i/2022/08/12/hgynzs.png)
-（添加了日志模块）
+![上传效果](https://cdn.jsdelivr.net/gh/cyicz123/Picture@main/img/202209171608685.png)
+**P.S.** 当超过GB大小的文件上传，大概率会出错，最后的若干字节会丢失。
+
+**3. 查看服务器文件列表**
+~~~bash
+./cli -l
+~~~
+**4. 测试下载**
+~~~ bash
+mv test_data_10G storage/ # 因为现在上传功能存在问题。所以需要手动将待下载文件移至服务器目录下，即storage目录
+./cli -l # 查看服务器文件列表
+./cli -d test_data_10G
+~~~
+![客户端上传](https://cdn.jsdelivr.net/gh/cyicz123/Picture@main/img/202209171623052.png)
+**5. 断点续传**
+
+所有上传下载均支持断点续传，按`ctrl c`取消传输后，重新执行命令即可断点续传
+## 四、TODO
+- [ ] 解决大文件上传卡死、错误的问题
+- [ ] 进度条加载支持多线程
+- [ ] 日志记录支持多线程
+- [ ] 日志记录增加客户端连接ip信息 
