@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-05 19:58:09
+ * @LastEditTime: 2022-09-13 15:42:51
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -55,7 +55,10 @@ void StartServer(){
 	while(1){
         // 选择一个可用的线程
         for (available_thread_id = 0; available_thread_id < SERVER_MAXIUM_THREADS; available_thread_id++) {
-            if(arg[available_thread_id].fd == -1) break;
+            if(arg[available_thread_id].fd == -1) 
+            {
+                break;
+            }
         }
 		if(available_thread_id == 256) break;
 
@@ -92,7 +95,7 @@ void *HandleClient(void* arg){
     while (true) {
         ret = Receive(thread_arg->fd, &request_buf, sizeof(RequestBuf));
         if (-1 == ret ) {
-            log_info("Connect interrupt.");
+            log_info("[IP: %s, Port: %d] The client is disconnected.", inet_ntoa(thread_arg->addr.sin_addr), ntohs(thread_arg->addr.sin_port));
             break;
         }
         else if (0 != ret) {
