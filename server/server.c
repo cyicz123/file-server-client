@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-25 14:50:50
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-13 15:42:51
+ * @LastEditTime: 2022-09-27 09:21:17
  * @FilePath: /tcp-server/thread/thread.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -473,7 +473,7 @@ uint16_t handleCommandMergeFile(thread_arg_server* arg, RequestBuf* request_buf)
     }
 
     ret = ReadLine(arg->fd, file_name, MAX_FILE_NAME_LENGTH);
-    if (ret < 0) {
+    if (0 > ret) {
         log_error("Receive the file name failed during handing the command about merging file.");
         return INTERNAL_SERVER_ERROR;
     }
@@ -485,6 +485,11 @@ uint16_t handleCommandMergeFile(thread_arg_server* arg, RequestBuf* request_buf)
 
     Combine(file_path, dir_path, file_name);
     write_fd = fopen(file_path, "wb");
+    if (0 > write_fd) {
+        log_error("Open file %s failed.", file_path);
+        return INTERNAL_SERVER_ERROR;
+    }
+
     for (size_t i=0; i<file_info.block_num; i++) {
         memset(block_file, 0, MAX_FILE_NAME_LENGTH);
         memset(block_path, 0, 2 * MAX_FILE_NAME_LENGTH);
@@ -498,10 +503,11 @@ uint16_t handleCommandMergeFile(thread_arg_server* arg, RequestBuf* request_buf)
     reply_buf.type = request_buf->type;
     reply_buf.status_code = REQUEST_OK;
     ret = Send(arg->fd, &reply_buf, sizeof(ReplyBuf));
-    if (ret < 0) {
+    if (0 > ret) {
         log_error("Send reply buf error.");
         return INTERNAL_SERVER_ERROR;
     }
+    
     return 0;
 }
 

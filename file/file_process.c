@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-07-27 10:04:33
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-05 19:04:15
+ * @LastEditTime: 2022-09-27 14:01:56
  * @FilePath: /tcp-server/file/file_process.c
  * @Description: 对文件打开，分割，合并处理
  */ 
@@ -30,11 +30,11 @@
 #include <math.h>
 #include <errno.h>
 
-#define MERGE_FILE_READ_BUF_SIZE 10240
+#define MERGE_FILE_READ_BUF_SIZE (1024*1024*10)
 
 
 /**
- * @description: 以rb模式打开文件，同时对文件进行检查是否大于4GB。
+ * @description: 以rb模式打开文件
  * @param {char*} file_path 欲打开的文件路径
  * @return {FILE*} fd 如果为NULL说明打开失败
  */
@@ -408,7 +408,7 @@ int WriteData(char* prefix, const uint8_t index, const char* buf, const uint64_t
     char* base_name = NULL;
     char* dir_name = NULL;
 
-    strncpy(prefix_path, prefix, 2 * MAX_FILE_NAME_LENGTH);
+    memcpy(prefix_path, prefix, 2 * MAX_FILE_NAME_LENGTH);
     base_name = basename(prefix_path);
     dir_name = dirname(prefix_path);
     BlockNameGen(block_name, base_name, index, MAX_FILE_NAME_LENGTH);
@@ -445,8 +445,9 @@ int MergeFile(FILE* fd, const char* path)
 {
     FILE* rd_fd = fopen(path, "rb");
     int read_buf_size = 0, write_buf_size = 0;
-    char buf[MERGE_FILE_READ_BUF_SIZE];
+    char* buf;
     uint64_t file_size = 0;
+
     if (fd == NULL) 
     {
         return 1;
@@ -456,20 +457,38 @@ int MergeFile(FILE* fd, const char* path)
         log_error("The file size is zero.");
         return 1;
     }
+
+    buf = (char*)malloc(MERGE_FILE_READ_BUF_SIZE * sizeof(char));
+
     while (0 != file_size) 
     {
         memset(buf, 0, MERGE_FILE_READ_BUF_SIZE);
-        read_buf_size = fread(buf, 1, MERGE_FILE_READ_BUF_SIZE, rd_fd); 
+
+        if (MERGE_FILE_READ_BUF_SIZE > file_size) {
+            read_buf_size = fread(buf, 1, file_size, rd_fd);
+        }
+        else
+        {
+            read_buf_size = fread(buf, 1, MERGE_FILE_READ_BUF_SIZE, rd_fd); 
+        }
+        if (0 == read_buf_size) {
+            log_warn("Only read 0 byte.");
+            CloseFile(rd_fd);
+            free(buf);
+            return 1;
+        }
         write_buf_size = fwrite(buf, 1, read_buf_size, fd);
         if (write_buf_size != read_buf_size) 
         {
-            log_error("The read and write operations are inconsistent.");
+            log_warn("The read and write operations are inconsistent.");
             CloseFile(rd_fd);
+            free(buf);
             return 1;
         } 
         file_size = file_size - read_buf_size;
     }
     fclose(rd_fd);
+    free(buf);
     return 0;
 }
 
@@ -553,7 +572,7 @@ int ShowDirFiles(const char* path, char* files[]){
         if (DT_REG == entry->d_type) {
             all_files[file_num] = (char*)malloc(MAX_FILE_NAME_LENGTH);
             memset(all_files[file_num], '\0', MAX_FILE_NAME_LENGTH);
-            strncpy(all_files[file_num], entry->d_name, MAX_FILE_NAME_LENGTH); 
+            memcpy(all_files[file_num], entry->d_name, MAX_FILE_NAME_LENGTH); 
             file_num++;
         }
         free(entry);

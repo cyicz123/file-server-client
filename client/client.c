@@ -2,7 +2,7 @@
  * @Author: cyicz123 cyicz123@outlook.com
  * @Date: 2022-08-30 15:05:13
  * @LastEditors: cyicz123 cyicz123@outlook.com
- * @LastEditTime: 2022-09-17 15:55:21
+ * @LastEditTime: 2022-09-27 14:01:12
  * @FilePath: /tcp-server/client/client.c
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -192,7 +192,7 @@ int QueryFiles(struct sockaddr_in* ser_addr, const char* storage_dir){
         dir_len = strlen(storage_dir);
         send_dir = (char*)malloc(sizeof(char) * (dir_len + 1));
         memset(send_dir, '\n', sizeof(char) * (dir_len + 1));
-        strncpy(send_dir, storage_dir, sizeof(char) * (dir_len + 1));
+        memcpy(send_dir, storage_dir, sizeof(char) * (dir_len + 1));
     }
     client_fd = ConnectServer(ser_addr);
     if (client_fd < 0) {
